@@ -1209,7 +1209,7 @@ function mostrarArquivo(r, titulo) {
   if (UI.compUrl) URL.revokeObjectURL(UI.compUrl);
   const url = UI.compUrl = URL.createObjectURL(new Blob([bytes], { type: r.mime }));
   openModal(`<h2>${esc(titulo)}</h2><p class="muted small">${esc(r.nome || '')}</p>
-    ${/^image\//.test(r.mime) ? `<img class="comp-img" src="${url}" alt="${esc(titulo)}">` : `<div class="note"><span>${ic('file')} Arquivo PDF. Use os botões abaixo para abrir ou baixar.</span></div>`}
+    ${/^image\//.test(r.mime) ? `<img class="comp-img" src="${url}" alt="${esc(titulo)}">` : `<div class="note"><span>${ic('file')} ${/word|msword/.test(r.mime) ? 'Arquivo do Word' : 'Arquivo PDF'}. Use os botões abaixo para abrir ou baixar.</span></div>`}
     <div class="modal-actions"><a class="btn" href="${url}" download="${esc(r.nome || 'arquivo')}">${ic('download')} Baixar</a><a class="btn" href="${url}" target="_blank" rel="noopener">Abrir em outra aba</a><button class="btn primary" data-act="close">Fechar</button></div>`, 'modal-wide');
 }
 const listaE = l => l.length > 1 ? l.slice(0, -1).join(', ') + ' e ' + l[l.length - 1] : l[0] || '';
