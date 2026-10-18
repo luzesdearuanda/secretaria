@@ -80,8 +80,8 @@ const PADRAO = (() => {
 })();
 // Campos que se ajustam sozinhos ao sair deles (a API aplica as mesmas regras ao gravar)
 const FMT_CAMPOS = {
-  nome: 'f-nome f-nsoc f-rnome f-enome f-logr f-comp f-bairro f-cid f-nat o-nome c-pres c-tes c-cid a-end e-dir ata-dir',
-  tel: 'f-tel f-etel a-tel', curto: 'f-rpar f-epar', upper: 'f-rg f-num',
+  nome: 'f-nome f-nsoc f-rnome f-enome f-logr f-comp f-bairro f-cid f-nat o-nome c-pres c-tes c-cid a-end e-dir ata-dir pe-nome pe-fil pe-rn dc-dir dc-pad dc-mad dc-fil dc-cel dc-t1 dc-t2',
+  tel: 'f-tel f-etel a-tel pe-tel', curto: 'f-rpar f-epar', upper: 'f-rg f-num',
   frase: 'f-prof f-terr d-obs i-obs i-mot i-emot i-cmot m-mot m-cmot m-fmot m-just m-antmot d-mot m-pobs l-desc g-nome k-nome m-cnome m-fnome e-tit e-local e-sub e-mot cp-nome ct-desc ct-mot it-nome it-cat it-local mv-obs mc-desc',
   texto: 'f-obs f-saude e-desc e-pauta cp-desc it-obs',
 };
@@ -390,6 +390,7 @@ const NAV = [
   { id: 'campanhas', label: 'Campanhas', ic: 'gift', mod: 'campanhas' },
   { id: 'estoque', label: 'Estoque', ic: 'box', mod: 'estoque' },
   { id: 'livro', label: 'Livro de registro', ic: 'book', mod: 'livro' },
+  { id: 'documentos', label: 'Documentos', ic: 'file', mod: 'documentos' },
   { sec: 'Tesouraria', fin: true },
   { id: 'financeiro', label: 'Financeiro', ic: 'wallet', fin: true, badge: () => finAlertas().vencidas.length },
   { sec: 'Administração', admin: true },
@@ -440,7 +441,7 @@ function shell(content) {
     ${bn('associados', 'Associados', 'users')}
     <button class="main-act" data-act="go" data-v="associadoForm" ${VIEW === 'associadoForm' && !P.id ? 'aria-current="page"' : ''}><span class="ic">${ic('plus')}</span><span>Novo</span></button>
     ${bn('mensalidades', 'Mensalidades', 'coin', k.inadimplentes.length ? `<span class="dot">${k.inadimplentes.length}</span>` : '')}
-    <button data-act="menu" ${['carteirinhas', 'funcoes', 'financeiro', 'configuracoes', 'operadores', 'atividades', 'cobranca', 'agenda', 'assembleias', 'campanhas', 'estoque', 'livro'].includes(cur) ? 'aria-current="page"' : ''}>${ic('more')}<span>Mais</span>${k.vencidas.length ? `<span class="dot">${k.vencidas.length}</span>` : ''}</button>
+    <button data-act="menu" ${['carteirinhas', 'funcoes', 'financeiro', 'configuracoes', 'operadores', 'atividades', 'cobranca', 'agenda', 'assembleias', 'campanhas', 'estoque', 'livro', 'documentos'].includes(cur) ? 'aria-current="page"' : ''}>${ic('more')}<span>Mais</span>${k.vencidas.length ? `<span class="dot">${k.vencidas.length}</span>` : ''}</button>
   </nav>
   ${UI.menu ? `<div class="overlay" data-act="menuClose" style="place-items:end stretch;padding:0"></div><div class="sheet-menu" role="menu">
     <button data-act="go" data-v="carteirinhas">${ic('card')} Carteirinhas${k.vencidas.length ? ` (${k.vencidas.length} vencidas)` : ''}</button>
