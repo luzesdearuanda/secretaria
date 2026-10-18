@@ -628,3 +628,12 @@ fieldset.nums legend{font-weight:600;font-size:.9rem;padding:0 4px}
 .nums-grid label{display:grid;gap:4px;font-size:.82rem;color:var(--muted)}
 @media (max-width:560px){.nums-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 [hidden]{display:none!important}
+
+/* versão 2.0: Documentos */
+.dc-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 14px;max-height:420px;overflow:auto;padding:4px 2px}
+.dc-item{align-items:flex-start;padding:4px 0}
+.doc h3{text-align:center;letter-spacing:.06em;margin:10px 0 4px}
+.doc-reg{text-align:right;font-family:var(--f-mono);font-size:11px;margin:0}
+.doc-cert p,.doc-termo-c p{text-align:justify;margin:0 0 6px}
+.doc-cert{font-size:13.5px;line-height:1.7}
+#print-root.doc-print .doc + .doc{break-before:page;page-break-before:always}
