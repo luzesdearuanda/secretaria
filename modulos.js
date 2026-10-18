@@ -3,7 +3,7 @@
    campanhas, assembleias, livro de registro, estoque e cópia de segurança.
    Cada módulo pode ser ligado ou desligado em Configurações; desligado, some das telas. */
 'use strict';
-Object.assign(TBL, { Eventos: ['eventos', 'id'], Presencas: ['presencas', 'id'], Marcos: ['marcos', 'id'], Campanhas: ['campanhas', 'id'], Contribuicoes: ['contribuicoes', 'id'],
+Object.assign(TBL, { Eventos: ['eventos', 'id'], Presencas: ['presencas', 'id'], Marcos: ['marcos', 'id'], Pessoas: ['pessoas', 'id'], Emissoes: ['emissoes', 'id'], Entregas: ['entregas', 'id'], Campanhas: ['campanhas', 'id'], Contribuicoes: ['contribuicoes', 'id'],
   Itens: ['itens', 'id'], MovEstoque: ['movEstoque', 'id'], Movimentacoes: ['movimentacoes', 'id'], Cobrancas: ['cobrancas', 'id'] });
 Object.assign(I, {
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
@@ -27,6 +27,7 @@ const MODULOS_INFO = [
   ['assembleias', 'Assembleias', 'Quem pode votar, lista de presença para assinar, quórum, edital de convocação e ata.'],
   ['livro', 'Livro de registro de associados', 'Relatório para imprimir com termo de abertura, associados, entradas e mudanças de situação.'],
   ['estoque', 'Estoque e patrimônio', 'Velas, ervas e materiais com alerta de estoque baixo, e o inventário dos bens da casa.'],
+  ['documentos', 'Documentos', 'Fichas, termos de consentimento (praia, amaci, corte), certificados de batismo e certidões de casamento, em massa ou para pessoas específicas, inclusive não associados.'],
   ['backup', 'Cópia de segurança', 'Cópia da planilha numa pasta do Drive, na hora ou toda semana, guardando as últimas versões.'],
 ];
 const TIPOS_EVENTO = ['Gira', 'Festa', 'Batismo', 'Reunião', 'Curso', 'Outro'];
@@ -440,7 +441,7 @@ VIEWS.evento = {
     const prAptos = asm ? pr.filter(x => ap.some(a => a.id === x.a.id)).length : 0;
     return `<div><button class="back" data-act="go" data-v="${asm ? 'assembleias' : 'agenda'}">${ic('back')} ${asm ? 'Assembleias' : 'Agenda'}</button>
       <div class="page-head"><div><h1>${esc(e.titulo)}</h1><p class="sub">${e.ataNum ? `Ata ${esc(e.ataNum)} · ` : ''}${esc(e.tipo)}${e.subtipo ? ' · ' + esc(e.subtipo) : ''}${e.acesso ? ' · ' + esc(e.acesso) : ''} · ${fmtD(e.data)}${e.hora ? ' às ' + e.hora : ''}${e.local ? ' · ' + esc(e.local) : ''}${e.dirigente ? ' · dirigente: ' + esc(e.dirigente) : ''}</p></div>
-      ${podeEd && !e.cancelado ? `<div class="toolbar"><button class="btn sm" data-act="evEditar" data-id="${e.id}">${ic('edit')} Editar</button><button class="btn sm ghost danger-text" data-act="evCancelar" data-id="${e.id}">${ic('x')} Cancelar</button></div>` : ''}</div></div>
+      ${podeEd && !e.cancelado ? `<div class="toolbar"><button class="btn sm" data-act="evEditar" data-id="${e.id}">${ic('edit')} Editar</button>${!asm && modOn('documentos') ? `<button class="btn sm" data-act="evTermo" data-id="${e.id}">${ic('file')} Termo de consentimento</button>` : ''}<button class="btn sm ghost danger-text" data-act="evCancelar" data-id="${e.id}">${ic('x')} Cancelar</button></div>` : ''}</div></div>
       ${e.cancelado ? `<div class="note bad"><span>Evento cancelado: ${esc(e.motivoCancelamento)}</span></div>` : ''}
       ${e.descricao ? `<p class="small">${esc(e.descricao)}</p>` : ''}
       ${NUMS_SESSAO.some(([k]) => e[k] !== '' && e[k] != null) ? `<section class="panel"><div class="panel-head"><h2>Números da sessão</h2></div><div class="kpis">${NUMS_SESSAO.filter(([k]) => e[k] !== '' && e[k] != null).map(([k, r]) => kpiBox(r, e[k], '')).join('')}</div></section>` : ''}
@@ -674,3 +675,206 @@ ACT.livroImprimir = () => {
     <p style="text-align:justify">Encerra-se nesta data a presente emissão do livro de registro de associados da ${esc(ac.nome)}, contendo ${plural(as.length, 'associado', 'associados')} e ${plural(mv.length, 'movimentação', 'movimentações')}.</p>
     <p>${esc(c.cidade || '')}, ${fmtD(TODAY())}.</p>${assin}</div>`, 'doc-print');
 };
+
+/* ============ Documentos (versão 2.0): termos, certificados e certidões ============ */
+const DOC_NOMES = { termo: 'Termo de consentimento', batismo: 'Certificado de batismo', casamento: 'Certidão de casamento religioso', ficha: 'Ficha de inscrição' };
+const ATIVIDADES_TERMO = ['Viagem de praia', 'Amaci', 'Corte de quimbanda'];
+const DOC_PADRAO = {
+  termo: `Eu, {nome}, CPF {cpf}, nascido(a) em {nascimento}, declaro que participo, por livre e espontânea vontade, da atividade {atividade}, a realizar-se em {data}, em {local}, promovida pela {associacao} sob a orientação da direção espiritual da casa.
+
+Declaro que:
+1) conheço o caráter religioso da atividade, cujos fundamentos me foram explicados previamente;
+2) seguirei as orientações dos dirigentes e da equipe responsável, inclusive quanto a horários, deslocamento e segurança;
+3) sou responsável pelos meus pertences pessoais;
+4) informei abaixo as minhas condições de saúde, alergias e medicamentos de uso contínuo.
+
+Saúde/alergias: {saude}
+Medicamentos: ________________________________________
+Contato de emergência: {emergencia}
+
+Em caso de necessidade, autorizo a equipe a me encaminhar ao serviço de saúde mais próximo e a avisar o meu contato de emergência.
+
+[menor] Eu, {responsavel}, CPF {cpfResponsavel}, responsável legal, autorizo a participação do(a) menor acima e assumo as responsabilidades deste termo.`,
+  batismo: `Certificamos que {nome}, nascido(a) em {nascimento}, filho(a) de {filiacao}, recebeu o Batismo na Umbanda em {data}, na {associacao}, sob a direção espiritual de {dirigente}, tendo como padrinho {padrinho} e madrinha {madrinha}.`,
+  casamento: `Certificamos que, em {data}, na {associacao}, perante o(a) celebrante {celebrante} e as testemunhas {testemunha1} e {testemunha2}, uniram-se pelo rito do casamento na Umbanda {nome1}, CPF {cpf1}, e {nome2}, CPF {cpf2}.
+
+Este ato tem caráter exclusivamente religioso e não substitui o casamento civil.`,
+};
+const DOC_CAMPOS = { termo: '{nome} {cpf} {nascimento} {atividade} {data} {local} {associacao} {saude} {emergencia} {responsavel} {cpfResponsavel} · linha iniciada com [menor] só aparece para menores de 18 anos',
+  batismo: '{nome} {nascimento} {filiacao} {data} {associacao} {dirigente} {padrinho} {madrinha}', casamento: '{data} {associacao} {celebrante} {testemunha1} {testemunha2} {nome1} {cpf1} {nome2} {cpf2}' };
+const modeloTxt = m => (S.config[{ termo: 'modeloTermo', batismo: 'modeloBatismo', casamento: 'modeloCasamento' }[m]] || '').trim() || DOC_PADRAO[m];
+const dataExt = d => { if (!d) return ''; const [y, m, dd] = d.split('-').map(Number); return `${dd} de ${MESES[m - 1]} de ${y}`; };
+const pessoaExt = id => L('pessoas').find(x => x.id === id);
+// pessoa de um documento: "a:ID" (associado) ou "p:ID" (pessoa externa)
+function pessoaDoc(ref) {
+  const [t, id] = String(ref).split(':');
+  if (t === 'a') { const a = assoc(id); if (!a) return null; return { ref, tipo: 'Associado', nome: a.nome, cpf: a.cpf, nascimento: a.nascimento, saude: a.saudeObs, emergencia: [a.emergNome, a.emergParentesco, a.emergTelefone].filter(Boolean).join(' · '), responsavel: a.responsavelNome, cpfResp: a.responsavelCpf, menor: ehMenor(a), filiacao: '', a }; }
+  const p = pessoaExt(id); if (!p) return null;
+  return { ref, tipo: 'Externa', nome: p.nome, cpf: p.cpf, nascimento: p.nascimento, saude: '', emergencia: p.telefone && p.responsavelNome ? `${p.responsavelNome} · ${p.telefone}` : '', responsavel: p.responsavelNome, cpfResp: p.responsavelCpf, menor: !!p.nascimento && idade(p.nascimento) < 18, filiacao: p.filiacao, p };
+}
+const BR = '____________________';
+function preenche(txt, v, menor) {
+  return txt.split('\n').filter(l => menor || !/^\s*\[menor\]/i.test(l)).map(l => l.replace(/^\s*\[menor\]\s*/i, '')).join('\n')
+    .split(/\n\s*\n/).map(par => `<p>${esc(par).replace(/\{(\w+)\}/g, (m, k) => k in v ? (v[k] ? `<b>${esc(v[k])}</b>` : BR) : m).replace(/\n/g, '<br>')}</p>`).join('');
+}
+const assinaturas = l => `<div class="fass-doc">${l.map(x => `<div><span></span>${x}</div>`).join('')}</div>`;
+function docHTML(em, ref) {
+  const ac = assocCfg(), c = S.config, d = em.dados || {}, cid = esc(c.cidade || '');
+  const reg = em.livro ? `<p class="doc-reg">Livro ${esc(em.livro)} · folha ${esc(em.folha)} · termo ${esc(em.termo)}</p>` : '';
+  const base = { associacao: ac.nome, data: dataExt(em.data), local: em.local, atividade: em.atividade, dirigente: d.dirigente, padrinho: d.padrinho, madrinha: d.madrinha, celebrante: d.celebrante, testemunha1: d.testemunha1, testemunha2: d.testemunha2 };
+  if (em.modelo === 'casamento') {
+    const [p1, p2] = em.pessoas.map(pessoaDoc);
+    const v = Object.assign(base, { nome1: p1 && p1.nome, cpf1: p1 && p1.cpf ? fmtCPF(p1.cpf) : '', nome2: p2 && p2.nome, cpf2: p2 && p2.cpf ? fmtCPF(p2.cpf) : '' });
+    return `<div class="doc doc-cert">${docCab(DOC_NOMES.casamento)}${reg}<h3>CERTIDÃO DE CASAMENTO RELIGIOSO</h3>${preenche(modeloTxt('casamento'), v)}
+      <p class="doc-place">${cid}, ${dataExt(TODAY())}.</p>${assinaturas(['Celebrante', 'Testemunha', 'Testemunha', 'Secretário(a)'])}</div>`;
+  }
+  const p = pessoaDoc(ref); if (!p) return '';
+  const v = Object.assign(base, { nome: p.nome, cpf: p.cpf ? fmtCPF(p.cpf) : '', nascimento: p.nascimento ? (em.modelo === 'batismo' ? dataExt(p.nascimento) : fmtD(p.nascimento)) : '', saude: p.saude, emergencia: p.emergencia,
+    responsavel: p.responsavel, cpfResponsavel: p.cpfResp ? fmtCPF(p.cpfResp) : '', filiacao: d.filiacao || p.filiacao });
+  if (em.modelo === 'batismo') return `<div class="doc doc-cert">${docCab(DOC_NOMES.batismo)}${reg}<h3>CERTIFICADO DE BATISMO</h3>${preenche(modeloTxt('batismo'), v)}
+      <p class="doc-place">${cid}, ${dataExt(TODAY())}.</p>${assinaturas(['Dirigente espiritual', 'Secretário(a)'])}</div>`;
+  return `<div class="doc doc-termo-c">${docCab(`${DOC_NOMES.termo} · ${em.atividade}`)}<h3>TERMO DE CONSENTIMENTO E RESPONSABILIDADE</h3>${preenche(modeloTxt('termo'), v, p.menor)}
+    <p class="doc-place">${cid}, ____/____/________.</p>${assinaturas(['Participante'].concat(p.menor ? ['Responsável legal'] : []))}</div>`;
+}
+async function imprimirEmissao(em) {
+  if (em.modelo === 'ficha') { printHTML(em.pessoas.map(r => pessoaDoc(r)).filter(x => x && x.a).map(x => `<div class="ficha-uma">${fichaHTML(x.a, x.a.fotoMini || '')}</div>`).join(''), 'ficha-print', FICHA_CSS + '.ficha-uma + .ficha-uma{break-before:page}'); return; }
+  const html = em.modelo === 'casamento' ? docHTML(em) : em.pessoas.map(r => docHTML(em, r)).join('');
+  printHTML(html, 'doc-print');
+}
+const entregaDe = (em, ref) => L('entregas').find(x => x.emissaoId === em.id && x.pessoa === ref);
+const emissao = id => L('emissoes').find(x => x.id === id);
+function emResumo(em) {
+  const n = em.pessoas.length, ent = L('entregas').filter(x => x.emissaoId === em.id).length;
+  const quem = em.modelo === 'casamento' || n <= 2 ? em.pessoas.map(r => (pessoaDoc(r) || { nome: '?' }).nome).join(' e ') : plural(n, 'pessoa', 'pessoas');
+  return { n, ent, quem };
+}
+
+VIEWS.documentos = {
+  mod: 'documentos',
+  render() {
+    const f = P.f || 'emitir', tab = (id, label, n) => `<button class="tab ${f === id ? 'on' : ''}" data-act="docsF" data-f="${id}">${label}${n != null ? ` <span class="count">${n}</span>` : ''}</button>`;
+    const ems = L('emissoes').filter(e => !e.cancelado);
+    return `<div class="page-head"><div><h1>Documentos</h1><p class="sub">Termos de consentimento, certificados de batismo, certidões de casamento e fichas, em massa ou para pessoas específicas.</p></div></div>
+      <div class="tabs" role="tablist">${tab('emitir', 'Emitir')}${tab('emitidos', 'Emitidos', ems.length)}${tab('pessoas', 'Pessoas externas', L('pessoas').length)}${tab('modelos', 'Modelos')}</div>
+      ${f === 'emitidos' ? docsEmitidos() : f === 'pessoas' ? docsPessoas() : f === 'modelos' ? docsModelos() : docsEmitir()}`;
+  }
+};
+function docsEmitir() {
+  const m = UI.dcMod || 'termo', ev = P.ev || UI.dcEv || '';
+  if (!UI.dcSel) UI.dcSel = new Set();
+  const evs = modOn('agenda') ? L('eventos').filter(e => !e.cancelado && e.data >= TODAY()).sort((x, y) => x.data.localeCompare(y.data)) : [];
+  const e = ev ? evento(ev) : null, atv = UI.dcAtv || ATIVIDADES_TERMO[0];
+  const inp = (id, label, val, extra = '') => `<div class="field"><label for="${id}">${label}</label><input id="${id}" value="${esc(val || '')}" ${extra}></div>`;
+  const reg = `${inp('dc-livro', 'Livro', '', 'inputmode="numeric"')}${inp('dc-folha', 'Folha', '', 'inputmode="numeric"')}${inp('dc-termo', 'Termo', '', 'inputmode="numeric"')}`;
+  const campos = m === 'termo' ? `<div class="field"><label for="dc-atv">Atividade</label><select id="dc-atv" data-ch="dcAtv">${ATIVIDADES_TERMO.concat('Outra').map(x => `<option ${x === atv ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+      ${atv === 'Outra' ? inp('dc-atvo', 'Qual atividade?', '', 'maxlength="80"') : ''}
+      ${evs.length ? `<div class="field"><label for="dc-ev">Sessão da agenda (opcional)</label><select id="dc-ev" data-ch="dcEv"><option value="">— sem ligação —</option>${evs.map(x => `<option value="${x.id}" ${x.id === ev ? 'selected' : ''}>${fmtD(x.data)} · ${esc(x.titulo)}</option>`).join('')}</select><span class="hint">Permite controlar quem devolveu o termo assinado.</span></div>` : ''}
+      ${inp('dc-data', 'Data da atividade', e ? e.data : '', 'type="date"')}${inp('dc-local', 'Local', e ? e.local : '', 'maxlength="150" placeholder="Ex.: Praia de Tramandaí"')}`
+    : m === 'batismo' ? `${inp('dc-data', 'Data do batismo', '', 'type="date"')}${reg}${inp('dc-dir', 'Dirigente espiritual', UI.dcDir || '', 'maxlength="150"')}${inp('dc-pad', 'Padrinho', '', 'maxlength="150"')}${inp('dc-mad', 'Madrinha', '', 'maxlength="150"')}
+      <div class="field full"><label for="dc-fil">Filiação</label><input id="dc-fil" maxlength="250" placeholder="Ex.: Maria da Silva e João da Silva (se vazio, usa o cadastro da pessoa externa)"></div>`
+    : m === 'casamento' ? `${inp('dc-data', 'Data do casamento', '', 'type="date"')}${reg}${inp('dc-cel', 'Celebrante', '', 'maxlength="150"')}${inp('dc-t1', 'Testemunha 1', '', 'maxlength="150"')}${inp('dc-t2', 'Testemunha 2', '', 'maxlength="150"')}`
+    : '<p class="small muted full">A ficha sai preenchida com os dados do cadastro, uma por associado.</p>';
+  const lim = m === 'batismo' ? 'Escolha 1 pessoa.' : m === 'casamento' ? 'Escolha as 2 pessoas do casal.' : m === 'ficha' ? 'Somente associados.' : 'Escolha quantas pessoas quiser.';
+  const pres = e ? presentes(e.id) : [];
+  return `<section class="panel"><div class="fields">
+      <div class="field"><label for="dc-mod">Documento</label><select id="dc-mod" data-ch="dcMod">${Object.keys(DOC_NOMES).map(k => `<option value="${k}" ${k === m ? 'selected' : ''}>${DOC_NOMES[k]}</option>`).join('')}</select></div>
+      ${campos}</div></section>
+    <section class="panel"><div class="panel-head"><h2>Para quem <span class="count" id="dc-n">${UI.dcSel.size}</span></h2>
+      <div class="toolbar"><button class="btn sm" data-act="dcTodos">${ic('users')} Todos os ativos</button>${pres.length ? `<button class="btn sm" data-act="dcPres">${ic('check')} Presentes na sessão (${pres.length})</button>` : ''}<button class="btn sm ghost" data-act="dcLimpar">Limpar</button></div></div>
+      <p class="small muted">${lim}</p>
+      <div class="toolbar"><label class="search"><span class="sr">Buscar</span>${ic('search')}<input data-in="dcQ" value="${esc(UI.dcQ || '')}" placeholder="Nome ou matrícula" autocomplete="off"></label>
+        <select data-ch="dcCat" aria-label="Categoria"><option value="">Todas as categorias</option>${S.categorias.map(c => `<option value="${c.id}" ${UI.dcCat === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+        <button class="btn sm ghost" data-act="dcVisiveis">Marcar os da lista</button></div>
+      <div id="dc-lista" class="dc-lista">${dcLista()}</div></section>
+    <div class="toolbar" style="justify-content:flex-end"><button class="btn primary" data-act="dcEmitir">${ic('print')} Emitir e imprimir</button></div>`;
+}
+function dcCandidatos() {
+  const m = UI.dcMod || 'termo', q = norm(UI.dcQ || '');
+  const as = S.associados.filter(a => a.situacao !== 'Desligado' && (!UI.dcCat || a.categoriaId === UI.dcCat)).map(a => ({ ref: 'a:' + a.id, nome: a.nome, s: `Matrícula ${fmtMat(a.matricula)} · ${esc(a.situacao)}`, b: norm(a.nome + ' ' + fmtMat(a.matricula)) }));
+  const ps = m === 'ficha' || UI.dcCat ? [] : L('pessoas').map(p => ({ ref: 'p:' + p.id, nome: p.nome, s: 'Pessoa externa', b: norm(p.nome) }));
+  return as.concat(ps).filter(x => !q || x.b.includes(q)).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
+}
+function dcLista() {
+  const l = dcCandidatos(); if (!l.length) return '<div class="empty">Ninguém encontrado.</div>';
+  return l.map(x => `<label class="check dc-item"><input type="checkbox" data-ch="dcMarca" value="${x.ref}" ${UI.dcSel.has(x.ref) ? 'checked' : ''}><span><b>${esc(x.nome)}</b> <span class="small muted">${x.s}</span></span></label>`).join('');
+}
+const dcAtualiza = () => { $('#dc-lista').innerHTML = dcLista(); $('#dc-n').textContent = UI.dcSel.size; };
+INP.dcQ = el => { UI.dcQ = el.value; $('#dc-lista').innerHTML = dcLista(); };
+CHG.dcCat = el => { UI.dcCat = el.value; dcAtualiza(); };
+CHG.dcMarca = el => { el.checked ? UI.dcSel.add(el.value) : UI.dcSel.delete(el.value); $('#dc-n').textContent = UI.dcSel.size; };
+CHG.dcMod = el => { UI.dcMod = el.value; if (el.value === 'ficha') [...UI.dcSel].forEach(r => r[0] === 'p' && UI.dcSel.delete(r)); render(); };
+CHG.dcAtv = el => { UI.dcAtv = el.value; render(); };
+CHG.dcEv = el => { UI.dcEv = el.value; P.ev = ''; render(); };
+function docsEmitidos() {
+  const l = L('emissoes').slice().sort((x, y) => y.emitidoEm.localeCompare(x.emitidoEm));
+  if (!l.length) return '<div class="table-wrap"><div class="empty">Nenhum documento emitido ainda.</div></div>';
+  return `<div class="table-wrap cards"><table><thead><tr><th>Documento</th><th>Para</th><th>Termos assinados</th><th><span class="sr">Ações</span></th></tr></thead><tbody>
+    ${l.map(em => { const r = emResumo(em), e = em.eventoId ? evento(em.eventoId) : null; return `<tr class="${em.cancelado ? 'dim' : ''}"><td class="lead"><b>${DOC_NOMES[em.modelo]}${em.atividade && em.modelo === 'termo' ? ' · ' + esc(em.atividade) : ''}</b><div class="s">${em.data ? fmtD(em.data) : ''}${em.livro ? ` · L${esc(em.livro)} F${esc(em.folha)} T${esc(em.termo)}` : ''}${e ? ' · ' + esc(e.titulo) : ''} · emitido em ${fmtD(em.emitidoEm.slice(0, 10))}${em.cancelado ? ' · cancelado: ' + esc(em.motivoCancelamento) : ''}</div></td>
+      <td data-label="Para">${esc(r.quem)}</td>
+      <td data-label="Termos assinados">${em.modelo === 'termo' ? (r.ent >= r.n ? pill(`${r.ent}/${r.n} entregues`, 'ok') : pill(`${r.ent}/${r.n} · faltam ${r.n - r.ent}`, 'warn')) : '—'}</td>
+      <td class="actions">${em.cancelado ? '' : `${em.modelo === 'termo' ? `<button class="btn sm" data-act="emControle" data-id="${em.id}">${ic('check')} Controle</button>` : ''}<button class="btn sm ghost" data-act="emImprimir" data-id="${em.id}">${ic('print')} Imprimir</button><button class="btn sm ghost danger-text" data-act="emCancelar" data-id="${em.id}">${ic('x')}<span class="sr">Cancelar</span></button>`}</td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+function emControleHTML(em) {
+  const r = emResumo(em);
+  return `<h2>Termos assinados</h2><p class="muted">${esc(em.atividade)}${em.data ? ' · ' + fmtD(em.data) : ''} · ${r.ent} de ${r.n} entregues</p>
+    <div class="list">${em.pessoas.map(ref => { const p = pessoaDoc(ref) || { nome: '(excluída)', tipo: '' }, x = entregaDe(em, ref);
+      return `<div class="row-item"><span class="who"><b>${esc(p.nome)}</b><span class="small muted">${p.tipo === 'Externa' ? 'Pessoa externa · ' : ''}${x ? `Entregue em ${fmtD(x.entregueEm.slice(0, 10))}${x.arquivoId ? ' · com arquivo' : ''}` : 'Falta entregar'}</span></span>
+        <span class="toolbar">${x ? `${x.arquivoId ? `<button class="btn sm ghost" data-act="entVer" data-id="${x.id}">${ic('file')} Ver</button>` : ''}<button class="btn sm ghost" data-act="entDesfazer" data-id="${x.id}" data-em="${em.id}">Desfazer</button>` : `<button class="btn sm" data-act="entMarcar" data-em="${em.id}" data-p="${ref}">${ic('check')} Entregue</button>`}
+        <label class="btn sm ghost">${ic('clip')} Anexar<input type="file" accept="image/*,application/pdf" hidden data-ch="entAnexar" data-em="${em.id}" data-p="${ref}"></label></span></div>`; }).join('')}</div>
+    <div class="modal-actions"><button class="btn" data-act="close">Fechar</button></div>`;
+}
+const emControleAbre = id => openModal(emControleHTML(emissao(id)), 'modal-wide');
+CHG.entAnexar = el => { const f = el.files[0]; if (!f) return; run(async () => { const prep = await prepComprovante(f, 2400, 0.85); await api('entrega.registrar', { emissaoId: el.dataset.em, pessoa: el.dataset.p, ...prep }, { msg: 'Enviando o termo…' }); emControleAbre(el.dataset.em); render(); toast('Termo assinado anexado'); }); };
+function docsPessoas() {
+  const l = L('pessoas').slice().sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
+  return `<div class="toolbar" style="justify-content:space-between"><p class="small muted">Pessoas que não são associadas (visitantes, batizandos, noivos). Não geram mensalidade nem carteirinha.</p><button class="btn primary" data-act="pesNovo">${ic('plus')} Nova pessoa</button></div>
+    ${l.length ? `<div class="list">${l.map(p => `<div class="row-item"><span class="who"><b>${esc(p.nome)}</b><span class="small muted">${[p.cpf ? fmtCPF(p.cpf) : '', p.nascimento ? fmtD(p.nascimento) : '', p.telefone, p.responsavelNome ? 'resp.: ' + p.responsavelNome : ''].filter(Boolean).map(esc).join(' · ')}</span></span>
+      <span class="toolbar"><button class="btn sm ghost" data-act="pesEditar" data-id="${p.id}">${ic('edit')} Editar</button></span></div>`).join('')}</div>` : '<div class="table-wrap"><div class="empty">Nenhuma pessoa externa cadastrada.</div></div>'}`;
+}
+function pesForm(p) {
+  p = p || {}; const i = (id, l, v, x = '') => `<div class="field"><label for="${id}">${l}</label><input id="${id}" value="${esc(v || '')}" ${x}></div>`;
+  return `<div class="fields"><div class="field full"><label for="pe-nome">Nome completo</label><input id="pe-nome" value="${esc(p.nome || '')}" maxlength="150"></div>
+    ${i('pe-cpf', 'CPF', p.cpf ? fmtCPF(p.cpf) : '', 'inputmode="numeric"')}${i('pe-nasc', 'Nascimento', p.nascimento, `type="date" max="${TODAY()}"`)}${i('pe-tel', 'Telefone', p.telefone, 'data-fmt="tel" placeholder="(54) 9 0000-0000"')}${i('pe-email', 'E-mail', p.email, 'type="email"')}
+    <div class="field full"><label for="pe-fil">Filiação</label><input id="pe-fil" value="${esc(p.filiacao || '')}" maxlength="250" placeholder="Nome da mãe e do pai (usado no certificado de batismo)"></div>
+    ${i('pe-rn', 'Responsável legal (menores)', p.responsavelNome, 'data-fmt="nome" maxlength="150"')}${i('pe-rc', 'CPF do responsável', p.responsavelCpf ? fmtCPF(p.responsavelCpf) : '', 'inputmode="numeric"')}
+    <div class="field full"><label for="pe-obs">Observações</label><input id="pe-obs" value="${esc(p.obs || '')}" maxlength="500"></div></div>`;
+}
+function docsModelos() {
+  const adm = isAdmin();
+  return `<p class="small muted">Textos usados nos documentos. Os campos entre chaves são preenchidos automaticamente; o que ficar sem dado sai como linha para preencher à mão.${adm ? '' : ' Somente o administrador altera os modelos.'}</p>
+    ${['termo', 'batismo', 'casamento'].map(m => `<section class="panel"><div class="panel-head"><h2>${DOC_NOMES[m]}</h2>${S.config[{ termo: 'modeloTermo', batismo: 'modeloBatismo', casamento: 'modeloCasamento' }[m]] ? pill('personalizado', 'ok') : pill('padrão', '')}</div>
+      <textarea id="md-${m}" rows="${m === 'termo' ? 16 : 6}" maxlength="6000" ${adm ? '' : 'readonly'} style="width:100%">${esc(modeloTxt(m))}</textarea>
+      <p class="small muted">Campos: ${esc(DOC_CAMPOS[m])}</p>
+      ${adm ? `<div class="toolbar"><button class="btn sm ghost" data-act="mdPadrao" data-m="${m}">Voltar ao padrão</button><button class="btn sm primary" data-act="mdSalvar" data-m="${m}">Salvar</button></div>` : ''}</section>`).join('')}`;
+}
+Object.assign(ACT, {
+  docsF(t) { P.f = t.dataset.f; render(); },
+  dcTodos() { S.associados.filter(a => a.situacao === 'Ativo' && (!UI.dcCat || a.categoriaId === UI.dcCat)).forEach(a => UI.dcSel.add('a:' + a.id)); dcAtualiza(); },
+  dcPres() { const e = evento(P.ev || UI.dcEv); presentes(e.id).forEach(x => UI.dcSel.add('a:' + x.a.id)); dcAtualiza(); },
+  dcVisiveis() { dcCandidatos().forEach(x => UI.dcSel.add(x.ref)); dcAtualiza(); },
+  dcLimpar() { UI.dcSel.clear(); dcAtualiza(); },
+  dcEmitir() {
+    const m = UI.dcMod || 'termo', v = id => ($(id) ? $(id).value : ''), atv = m === 'termo' ? (v('#dc-atv') === 'Outra' ? v('#dc-atvo') : v('#dc-atv')) : '';
+    const d = { modelo: m, atividade: atv, eventoId: m === 'termo' ? v('#dc-ev') : '', data: v('#dc-data'), local: v('#dc-local'), livro: v('#dc-livro'), folha: v('#dc-folha'), termo: v('#dc-termo'), pessoas: [...UI.dcSel],
+      dados: { dirigente: v('#dc-dir'), padrinho: v('#dc-pad'), madrinha: v('#dc-mad'), filiacao: v('#dc-fil'), celebrante: v('#dc-cel'), testemunha1: v('#dc-t1'), testemunha2: v('#dc-t2') } };
+    if (m === 'batismo') UI.dcDir = d.dados.dirigente;
+    run(async () => { const r = await api('emissao.criar', d, { msg: 'Emitindo…' }); UI.dcSel.clear(); toast(`${DOC_NOMES[m]} emitido`); P.f = 'emitidos'; render(); imprimirEmissao(emissao(r.id)); });
+  },
+  emImprimir(t) { imprimirEmissao(emissao(t.dataset.id)); },
+  emControle(t) { emControleAbre(t.dataset.id); },
+  emCancelar(t) { openModal(`<h2>Cancelar documento</h2><p class="muted">O registro continua no histórico, marcado como cancelado.</p><div class="field"><label for="em-mot">Motivo</label><input id="em-mot" maxlength="300"></div>
+    <div class="modal-actions"><button class="btn" data-act="close">Voltar</button><button class="btn danger" data-act="emCancelarOk" data-id="${t.dataset.id}">Cancelar documento</button></div>`); },
+  emCancelarOk(t) { run(async () => { await api('emissao.cancelar', { id: t.dataset.id, motivo: $('#em-mot').value }); closeModal(); render(); toast('Documento cancelado'); }); },
+  entMarcar(t) { run(async () => { await api('entrega.registrar', { emissaoId: t.dataset.em, pessoa: t.dataset.p }); emControleAbre(t.dataset.em); render(); }); },
+  entDesfazer(t) { run(async () => { await api('entrega.desfazer', { id: t.dataset.id }); emControleAbre(t.dataset.em); render(); }); },
+  entVer(t) { run(async () => { const r = await api('entrega.arquivo', { id: t.dataset.id }, { msg: 'Abrindo…' }); mostrarArquivo(r, 'Termo assinado'); }); },
+  pesNovo() { openModal(`<h2>Nova pessoa externa</h2>${pesForm()}<div class="modal-actions"><button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="pesSalvar">Cadastrar</button></div>`, 'modal-wide'); },
+  pesEditar(t) { const p = pessoaExt(t.dataset.id); openModal(`<h2>Editar pessoa externa</h2>${pesForm(p)}<div class="modal-actions"><button class="btn ghost danger-text" data-act="pesExcluir" data-id="${p.id}">Excluir</button><button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="pesSalvar" data-id="${p.id}">Salvar</button></div>`, 'modal-wide'); },
+  pesSalvar(t) { const d = { id: t.dataset.id || '', nome: $('#pe-nome').value, cpf: $('#pe-cpf').value, nascimento: $('#pe-nasc').value, telefone: $('#pe-tel').value, email: $('#pe-email').value, filiacao: $('#pe-fil').value, responsavelNome: $('#pe-rn').value, responsavelCpf: $('#pe-rc').value, obs: $('#pe-obs').value };
+    run(async () => { await api('pessoa.salvar', d); closeModal(); render(); toast('Pessoa salva'); }); },
+  pesExcluir(t) { run(async () => { await api('pessoa.excluir', { id: t.dataset.id }); closeModal(); render(); toast('Pessoa excluída'); }); },
+  mdSalvar(t) { const m = t.dataset.m, txt = $('#md-' + m).value; run(async () => { await api('modelo.salvar', { modelo: m, texto: txt.trim() === DOC_PADRAO[m] ? '' : txt }); render(); toast('Modelo salvo'); }); },
+  mdPadrao(t) { const m = t.dataset.m; run(async () => { await api('modelo.salvar', { modelo: m, texto: '' }); render(); toast('Modelo voltou ao padrão'); }); },
+  evTermo(t) { UI.dcMod = 'termo'; UI.dcEv = t.dataset.id; P.ev = ''; go('documentos', { f: 'emitir' }); },
+});
