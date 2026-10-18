@@ -29,8 +29,20 @@ const MODULOS_INFO = [
   ['estoque', 'Estoque e patrimônio', 'Velas, ervas e materiais com alerta de estoque baixo, e o inventário dos bens da casa.'],
   ['backup', 'Cópia de segurança', 'Cópia da planilha numa pasta do Drive, na hora ou toda semana, guardando as últimas versões.'],
 ];
-const TIPOS_EVENTO = ['Gira', 'Festa', 'Reunião', 'Curso', 'Outro'];
-const TIPOS_MARCO = ['Batismo', 'Amaci', 'Cruzamento', 'Coroação', 'Desenvolvimento mediúnico', 'Curso', 'Outro'];
+const TIPOS_EVENTO = ['Gira', 'Festa', 'Batismo', 'Reunião', 'Curso', 'Outro'];
+// versão 1.9: sessões espirituais têm linha, pública/privada, nº da ata e números
+const SESSOES = ['Gira', 'Festa', 'Batismo'];
+const NUMS_SESSAO = [['mediuns', 'Médiuns presentes'], ['faltas', 'Faltas'], ['faltasJust', 'Faltas justificadas'], ['consultas', 'Consultas atendidas'], ['passes', 'Passes'], ['encaminhamentos', 'Encaminhamentos para cura']];
+const MIME_WORD = { docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', doc: 'application/msword' };
+const ehDirigente = a => funcoesAtuais(a.id).some(x => { const f = funcao(x.funcaoId); return f && /dirigente espiritual/i.test(f.nome); });
+// ata: PDF/foto (reduzida) ou Word (enviado como está)
+function prepAta(f) {
+  const ext = (f.name.match(/\.(docx?)$/i) || [])[1];
+  if (!ext) return prepComprovante(f, 2400, 0.85);
+  if (f.size > 6 * 1024 * 1024) return Promise.reject(new Error('Arquivo maior que 6 MB.'));
+  return blobB64(f).then(d => ({ mime: MIME_WORD[ext.toLowerCase()], nome: f.name, dados: d }));
+}
+const TIPOS_MARCO = ['Batismo', 'Casamento', 'Amaci', 'Cruzamento', 'Coroação', 'Desenvolvimento mediúnico', 'Curso', 'Outro'];
 const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const mesFimISO = c => { const [y, m] = c.split('-').map(Number); return isoLocal(new Date(y, m, 0)); };
 const num = v => Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
@@ -82,13 +94,14 @@ Object.assign(MOD, {
   // Painel extra no cadastro do associado: caminhada na casa e frequência
   painelAssoc(a) {
     if (!modOn('historico') && !modOn('agenda')) return '';
+    if (ehDirigente(a)) return ''; // versão 1.9: dirigentes da casa não têm esta seção
     const ms = L('marcos').filter(m => m.assocId === a.id && !m.excluido).sort((x, y) => y.data.localeCompare(x.data));
     const desde = addDays(TODAY(), -90), evs = L('eventos').filter(e => !e.cancelado && e.tipo === 'Gira' && e.data >= desde && e.data <= TODAY());
     const pres = evs.filter(e => L('presencas').some(p => p.eventoId === e.id && p.assocId === a.id)).length;
     return `<section class="panel"><div class="panel-head"><h2>${modOn('historico') ? 'Caminhada na casa' : 'Frequência'}</h2>${modOn('historico') ? `<button class="btn sm primary" data-act="marcoNovo" data-id="${a.id}">${ic('plus')} Registrar</button>` : ''}</div>
       ${modOn('agenda') ? `<p class="small muted">${evs.length ? `Presença nas giras dos últimos 90 dias: <b>${pres} de ${evs.length}</b> (${Math.round(pres / evs.length * 100)}%).` : 'Nenhuma gira registrada na agenda nos últimos 90 dias.'}</p>` : ''}
-      ${modOn('historico') ? (ms.length ? `<ol class="timeline">${ms.map(m => `<li><b>${esc(m.tipo)}</b> <span class="muted">· ${fmtD(m.data)}</span>${m.descricao ? `<div class="small">${esc(m.descricao)}</div>` : ''}${isAdmin() ? `<button class="btn sm ghost icon" data-act="marcoExcluir" data-id="${m.id}" aria-label="Excluir registro" title="Excluir registro">${ic('x')}</button>` : ''}</li>`).join('')}</ol>`
-        : '<p class="small muted">Nada registrado ainda. Registre batismo, amaci, cruzamento, coroação, cursos e outras etapas.</p>') : ''}
+      ${modOn('historico') ? (ms.length ? `<ol class="timeline">${ms.map(m => `<li><b>${esc(m.tipo)}</b> <span class="muted">· ${fmtD(m.data)}</span>${m.descricao ? `<div class="small">${esc(m.descricao)}</div>` : ''}<div class="small">${m.arquivoId ? `<button class="btn sm ghost" data-act="marcoVer" data-id="${m.id}">${ic('file')} Ver certidão</button>` : ''}<button class="btn sm ghost" data-act="marcoAnexar" data-id="${m.id}">${ic('clip')} ${m.arquivoId ? 'Trocar certidão' : 'Anexar certidão'}</button></div>${isAdmin() ? `<button class="btn sm ghost icon" data-act="marcoExcluir" data-id="${m.id}" aria-label="Excluir registro" title="Excluir registro">${ic('x')}</button>` : ''}</li>`).join('')}</ol>`
+        : '<p class="small muted">Nada registrado ainda. Registre batismo, casamento, amaci, cruzamento, coroação, cursos e outras etapas, com a certidão quando houver.</p>') : ''}
     </section>`;
   },
   kpis() {
@@ -240,22 +253,24 @@ function eventoLinha(e) {
   const n = L('presencas').filter(p => p.eventoId === e.id).length;
   return `<button class="row-item linklike ${e.cancelado ? 'dim' : ''}" data-act="go" data-v="evento" data-id="${e.id}" style="width:100%;text-align:left">
     <span class="ev-data"><b>${fmtD(e.data).slice(0, 5)}</b><span>${DIAS_SEMANA[new Date(e.data + 'T12:00').getDay()].slice(0, 3)}</span></span>
-    <span class="who"><b>${esc(e.titulo)}</b><span class="small muted">${esc(e.tipo)}${e.subtipo && !ehAssembleia(e) ? ' · ' + esc(e.subtipo) : ''}${e.hora ? ' · ' + e.hora : ''}${e.local ? ' · ' + esc(e.local) : ''}${e.cancelado ? ' · cancelado' : ''}</span></span>
-    <span class="small muted" style="margin-left:auto;white-space:nowrap">${n ? plural(n, 'presente', 'presentes') : ''}${e.ata ? ' · ata' : ''}</span></button>`;
+    <span class="who"><b>${esc(e.titulo)}</b><span class="small muted">${e.ataNum ? `Ata ${esc(e.ataNum)} · ` : ''}${esc(e.tipo)}${e.subtipo && !ehAssembleia(e) ? ' · ' + esc(e.subtipo) : ''}${e.acesso ? ' · ' + esc(e.acesso.toLowerCase()) : ''}${e.hora ? ' · ' + e.hora : ''}${e.local ? ' · ' + esc(e.local) : ''}${e.cancelado ? ' · cancelado' : ''}</span></span>
+    <span class="small muted" style="margin-left:auto;white-space:nowrap">${n ? plural(n, 'presente', 'presentes') : e.mediuns ? plural(+e.mediuns, 'médium', 'médiuns') : ''}${e.ata || e.ataArquivoId ? ' · ata' : ''}</span></button>`;
 }
 VIEWS.agenda = {
   mod: 'agenda',
   render() {
     const f = P.f || 'proximos', evs = L('eventos').filter(e => !ehAssembleia(e));
     const prox = evs.filter(e => e.data >= TODAY()).sort((x, y) => (x.data + x.hora).localeCompare(y.data + y.hora)), ant = evs.filter(e => e.data < TODAY()).sort((x, y) => (y.data + y.hora).localeCompare(x.data + x.hora));
-    const semAta = ant.filter(e => !e.cancelado && !e.ata && e.tipo === 'Gira').length;
+    const semAta = ant.filter(e => !e.cancelado && !e.ata && !e.ataArquivoId && SESSOES.includes(e.tipo)).length;
+    const ano = TODAY().slice(0, 4), doAno = ant.filter(e => !e.cancelado && e.data.startsWith(ano) && SESSOES.includes(e.tipo)), soma = k => doAno.reduce((t, e) => t + (Number(e[k]) || 0), 0);
     const tab = (id, label, n) => `<button class="tab ${f === id ? 'on' : ''}" data-act="agF" data-f="${id}">${label} <span class="count">${n}</span></button>`;
     const lista = f === 'proximos' ? prox : ant;
     return `<div class="page-head"><div><h1>Agenda</h1><p class="sub">Giras, festas, reuniões e cursos, com presença e ata.</p></div>
       <div class="toolbar"><button class="btn" data-act="freqAbrir">${ic('users')} Frequência</button><button class="btn primary" data-act="evNovo">${ic('plus')} Novo evento</button></div></div>
-      ${semAta ? `<div class="note info"><span>${plural(semAta, 'gira já realizada está sem ata', 'giras já realizadas estão sem ata')}. Abra a gira e use "Registrar ata".</span></div>` : ''}
+      ${semAta ? `<div class="note info"><span>${plural(semAta, 'gira já realizada está sem ata', 'giras já realizadas estão sem ata')}. Abra a sessão e registre ou anexe a ata.</span></div>` : ''}
       <div class="tabs" role="tablist">${tab('proximos', 'Próximos', prox.length)}${tab('anteriores', 'Anteriores', ant.length)}</div>
-      <section class="panel">${lista.length ? `<div class="list">${lista.slice(0, 120).map(eventoLinha).join('')}</div>` : `<div class="empty">${f === 'proximos' ? 'Nada agendado. Use "Novo evento".' : 'Nenhum evento anterior.'}</div>`}</section>`;
+      ${f === 'anteriores' && doAno.length ? `<p class="small muted">${ano}: ${plural(doAno.length, 'sessão realizada', 'sessões realizadas')} · ${NUMS_SESSAO.map(([k, r]) => `${r.toLowerCase()}: <b>${soma(k)}</b>`).join(' · ')}</p>` : ''}
+      <section class="panel">${lista.length ? `<div class="list">${lista.slice(0, 200).map(eventoLinha).join('')}</div>` : `<div class="empty">${f === 'proximos' ? 'Nada agendado. Use "Novo evento".' : 'Nenhum evento anterior.'}</div>`}</section>`;
   }
 };
 ACT.agF = t => { P.f = t.dataset.f; render(); };
@@ -270,19 +285,26 @@ VIEWS.assembleias = {
 };
 function eventoForm(e, tipo) {
   const asm = (e ? e.tipo : tipo) === 'Assembleia';
+  const sess = SESSOES.includes(e ? e.tipo : 'Gira') ? '' : 'hidden';
   return `<div class="fields">
     ${asm ? `<div class="field"><label for="e-sub">Tipo</label><select id="e-sub">${['Ordinária', 'Extraordinária'].map(t => `<option ${e && e.subtipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`
-      : `<div class="field"><label for="e-tipo">Tipo</label><select id="e-tipo">${TIPOS_EVENTO.map(t => `<option ${e && e.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-         <div class="field"><label for="e-sub">Linha / tema</label><input id="e-sub" value="${esc(e ? e.subtipo : '')}" placeholder="Ex.: Caboclos, Pretos-velhos"></div>`}
-    <div class="field full"><label for="e-tit">Título</label><input id="e-tit" value="${esc(e ? e.titulo : '')}" placeholder="${asm ? 'Assembleia Geral Ordinária' : 'Ex.: Gira de Caboclos'}"></div>
+      : `<div class="field"><label for="e-tipo">Sessão / tipo</label><select id="e-tipo" data-ch="evTipo">${TIPOS_EVENTO.map(t => `<option ${e && e.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+         <div class="field"><label for="e-sub">Linha / tema</label><input id="e-sub" value="${esc(e ? e.subtipo : '')}" placeholder="Ex.: Quimbanda, Preto Velho, Ogum e Caboclo"></div>
+         <div class="field e-sess" ${sess}><label for="e-acesso">Pública ou privada</label><select id="e-acesso"><option value="Pública" ${e && e.acesso === 'Privada' ? '' : 'selected'}>Pública (aberta)</option><option value="Privada" ${e && e.acesso === 'Privada' ? 'selected' : ''}>Privada (fechada)</option></select></div>
+         <div class="field"><label for="e-atan">Nº da ata</label><input id="e-atan" type="number" min="1" inputmode="numeric" value="${esc(e ? e.ataNum : '')}"></div>`}
+    <div class="field full"><label for="e-tit">Título</label><input id="e-tit" value="${esc(e ? e.titulo : '')}" placeholder="${asm ? 'Assembleia Geral Ordinária' : 'Opcional. Em branco: sessão + linha (ex.: Gira de Quimbanda)'}"></div>
     <div class="field"><label for="e-data">Data</label><input id="e-data" type="date" value="${e ? e.data : TODAY()}"></div>
     <div class="field"><label for="e-hora">Hora</label><input id="e-hora" type="time" value="${e ? e.hora : ''}"></div>
     <div class="field full"><label for="e-local">Local</label><input id="e-local" value="${esc(e ? e.local : '')}" placeholder="${esc(assocCfg().endereco || 'Terreiro')}"></div>
     ${asm ? `<div class="field full"><label for="e-pauta">Pauta (ordem do dia)</label><textarea id="e-pauta" rows="5" placeholder="1. Prestação de contas&#10;2. Eleição da diretoria">${esc(e ? e.pauta : '')}</textarea></div>`
       : `<div class="field"><label for="e-dir">Dirigente</label><input id="e-dir" value="${esc(e ? e.dirigente : '')}"></div>`}
-    <div class="field full"><label for="e-desc">Observações</label><textarea id="e-desc" rows="2">${esc(e ? e.descricao : '')}</textarea></div></div>`;
+    <div class="field full"><label for="e-desc">Observações</label><textarea id="e-desc" rows="2">${esc(e ? e.descricao : '')}</textarea></div>
+    ${asm ? '' : `<fieldset class="field full e-sess nums" ${sess}><legend>Números da sessão (opcional)</legend><div class="nums-grid">${NUMS_SESSAO.map(([k, r]) => `<label>${r}<input id="e-n-${k}" type="number" min="0" inputmode="numeric" value="${esc(e ? e[k] : '')}"></label>`).join('')}</div></fieldset>`}</div>`;
 }
-const eventoDados = (tipoFixo) => ({ tipo: tipoFixo || $('#e-tipo').value, subtipo: $('#e-sub')?.value || '', titulo: $('#e-tit').value, data: $('#e-data').value, hora: $('#e-hora').value, local: $('#e-local').value, pauta: $('#e-pauta')?.value || '', dirigente: $('#e-dir')?.value || '', descricao: $('#e-desc').value });
+const eventoDados = (tipoFixo) => { const d = { tipo: tipoFixo || $('#e-tipo').value, subtipo: $('#e-sub')?.value || '', titulo: $('#e-tit').value, data: $('#e-data').value, hora: $('#e-hora').value, local: $('#e-local').value, pauta: $('#e-pauta')?.value || '', dirigente: $('#e-dir')?.value || '', descricao: $('#e-desc').value, acesso: $('#e-acesso')?.value || '', ataNum: $('#e-atan')?.value || '' };
+  NUMS_SESSAO.forEach(([k]) => { d[k] = $('#e-n-' + k)?.value || ''; }); return d; };
+// mostra pública/privada e números só para Gira, Festa e Batismo
+CHG.evTipo = el => document.querySelectorAll('.e-sess').forEach(x => { x.hidden = !SESSOES.includes(el.value); });
 Object.assign(ACT, {
   evNovo(t) {
     const asm = t.dataset.tipo === 'Assembleia';
@@ -352,11 +374,11 @@ Object.assign(ACT, {
       <div class="fass-doc">${(asm ? ['Presidente', 'Secretário(a)'] : ['Dirigente' + (e.dirigente ? ': ' + esc(e.dirigente) : ''), 'Secretário(a)']).map(r => `<div><span></span>${r}</div>`).join('')}</div></div>`, 'doc-print');
   },
   ataAnexar(t) {
-    openModal(`<h2>Anexar ata assinada</h2><div class="field"><label for="ata-arq">Arquivo (foto ou PDF escaneado)</label><input id="ata-arq" type="file" accept="image/*,application/pdf"></div>
+    openModal(`<h2>Anexar ata</h2><div class="field"><label for="ata-arq">Arquivo: PDF, foto ou Word</label><input id="ata-arq" type="file" accept="image/*,application/pdf,.doc,.docx"><span class="hint">Ata já digitada ou assinada e escaneada. Até 6 MB.</span></div>
       <div class="modal-actions"><button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="ataAnexarOk" data-id="${t.dataset.id}">Anexar</button></div>`);
   },
-  ataAnexarOk(t) { const f = $('#ata-arq').files[0]; if (!f) { toast('Escolha o arquivo.', 'bad'); return; } run(async () => { const prep = await prepComprovante(f, 2400, 0.85); await api('evento.ataArquivo', { id: t.dataset.id, ...prep }, { msg: 'Enviando ata…' }); closeModal(); render(); toast('Ata assinada anexada'); }); },
-  ataVer(t) { run(async () => { const r = await api('evento.ataObter', { id: t.dataset.id }, { msg: 'Abrindo ata…' }); mostrarArquivo(r, 'Ata assinada'); }); },
+  ataAnexarOk(t) { const f = $('#ata-arq').files[0]; if (!f) { toast('Escolha o arquivo.', 'bad'); return; } run(async () => { const prep = await prepAta(f); await api('evento.ataArquivo', { id: t.dataset.id, ...prep }, { msg: 'Enviando ata…' }); closeModal(); render(); toast('Ata anexada'); }); },
+  ataVer(t) { run(async () => { const r = await api('evento.ataObter', { id: t.dataset.id }, { msg: 'Abrindo ata…' }); mostrarArquivo(r, 'Ata'); }); },
   listaPresenca(t) {
     const e = evento(t.dataset.id), asm = ehAssembleia(e), lista = asm ? aptosVotar() : ativosOrd();
     printHTML(`<div class="doc">${docCab(`Lista de presença · ${e.titulo} · ${fmtD(e.data)}${e.hora ? ' ' + e.hora : ''}`)}
@@ -417,10 +439,11 @@ VIEWS.evento = {
     const asm = ehAssembleia(e), pr = presentes(e.id), podeEd = !asm || isAdmin(), ap = asm ? aptosVotar() : [];
     const prAptos = asm ? pr.filter(x => ap.some(a => a.id === x.a.id)).length : 0;
     return `<div><button class="back" data-act="go" data-v="${asm ? 'assembleias' : 'agenda'}">${ic('back')} ${asm ? 'Assembleias' : 'Agenda'}</button>
-      <div class="page-head"><div><h1>${esc(e.titulo)}</h1><p class="sub">${esc(e.tipo)}${e.subtipo ? ' · ' + esc(e.subtipo) : ''} · ${fmtD(e.data)}${e.hora ? ' às ' + e.hora : ''}${e.local ? ' · ' + esc(e.local) : ''}${e.dirigente ? ' · dirigente: ' + esc(e.dirigente) : ''}</p></div>
+      <div class="page-head"><div><h1>${esc(e.titulo)}</h1><p class="sub">${e.ataNum ? `Ata ${esc(e.ataNum)} · ` : ''}${esc(e.tipo)}${e.subtipo ? ' · ' + esc(e.subtipo) : ''}${e.acesso ? ' · ' + esc(e.acesso) : ''} · ${fmtD(e.data)}${e.hora ? ' às ' + e.hora : ''}${e.local ? ' · ' + esc(e.local) : ''}${e.dirigente ? ' · dirigente: ' + esc(e.dirigente) : ''}</p></div>
       ${podeEd && !e.cancelado ? `<div class="toolbar"><button class="btn sm" data-act="evEditar" data-id="${e.id}">${ic('edit')} Editar</button><button class="btn sm ghost danger-text" data-act="evCancelar" data-id="${e.id}">${ic('x')} Cancelar</button></div>` : ''}</div></div>
       ${e.cancelado ? `<div class="note bad"><span>Evento cancelado: ${esc(e.motivoCancelamento)}</span></div>` : ''}
       ${e.descricao ? `<p class="small">${esc(e.descricao)}</p>` : ''}
+      ${NUMS_SESSAO.some(([k]) => e[k] !== '' && e[k] != null) ? `<section class="panel"><div class="panel-head"><h2>Números da sessão</h2></div><div class="kpis">${NUMS_SESSAO.filter(([k]) => e[k] !== '' && e[k] != null).map(([k, r]) => kpiBox(r, e[k], '')).join('')}</div></section>` : ''}
       ${asm ? `<section class="panel"><div class="panel-head"><h2>Quórum</h2><div class="toolbar"><button class="btn sm" data-act="edital" data-id="${e.id}">${ic('print')} Edital de convocação</button><button class="btn sm" data-act="listaPresenca" data-id="${e.id}">${ic('print')} Lista para assinar</button></div></div>
         <div class="kpis">${kpiBox('Podem votar', ap.length, 'ativos, 18+ e em dia')}${kpiBox('Presentes aptos', prAptos, ap.length ? `${Math.round(prAptos / ap.length * 100)}% dos aptos` : '—', ap.length && prAptos * 2 > ap.length ? 'ok' : '')}${kpiBox('Presentes', pr.length, 'total registrado')}</div>
         ${e.pauta ? `<h3 class="small" style="margin:8px 0 4px">Pauta</h3><div class="ata-txt small">${esc(e.pauta)}</div>` : ''}
@@ -430,9 +453,10 @@ VIEWS.evento = {
         ${!e.cancelado ? `<div class="pres-add"><input id="pr-q" list="m-alist" placeholder="Digite o nome ou a matrícula" autocomplete="off">${assocOpts()}<button class="btn" data-act="presAdd" data-id="${e.id}">${ic('plus')} Marcar</button></div>` : ''}
         ${pr.length ? `<div class="pres-grid">${pr.map(x => `<span class="pres-chip">${avatar(x.a)}<span>${esc(x.a.nome)}${x.p.modo === 'Carteirinha' ? ` <span class="muted small">${ic('qr')}</span>` : ''}</span>${!e.cancelado && podeEd ? `<button class="btn sm ghost icon" data-act="presRem" data-id="${x.p.id}" aria-label="Remover ${esc(x.a.nome)}" title="Remover">${ic('x')}</button>` : ''}</span>`).join('')}</div>` : '<p class="small muted">Ninguém marcado ainda.</p>'}
       </section>
-      <section class="panel"><div class="panel-head"><h2>Ata</h2>${podeEd && !e.cancelado ? `<div class="toolbar">${e.ata ? `<button class="btn sm" data-act="ataImprimir" data-id="${e.id}">${ic('print')} Imprimir</button>` : ''}<button class="btn sm ${e.ata ? '' : 'primary'}" data-act="ataAbrir" data-id="${e.id}">${ic('edit')} ${e.ata ? 'Editar ata' : 'Registrar ata'}</button>${e.ata ? `<button class="btn sm" data-act="ataAnexar" data-id="${e.id}">${ic('clip')} ${e.ataArquivoId ? 'Trocar ata assinada' : 'Anexar ata assinada'}</button>` : ''}</div>` : ''}</div>
-        ${e.ata ? `<div class="ata-txt">${esc(e.ata)}</div><p class="small muted">Registrada por ${esc(e.ataPor)} em ${fmtStamp(e.ataEm)}.${e.ataArquivoId ? ` <button class="btn sm ghost" data-act="ataVer" data-id="${e.id}">${ic('file')} Abrir ata assinada</button>` : ''}</p>`
-          : `<p class="small muted">${e.data <= TODAY() ? 'Registre o que aconteceu: atendimentos, ocorrências, avisos e encaminhamentos.' : 'A ata pode ser registrada depois do evento.'}</p>`}
+      <section class="panel"><div class="panel-head"><h2>Ata</h2>${podeEd && !e.cancelado ? `<div class="toolbar">${e.ata ? `<button class="btn sm" data-act="ataImprimir" data-id="${e.id}">${ic('print')} Imprimir</button>` : ''}<button class="btn sm ${e.ata || e.ataArquivoId ? '' : 'primary'}" data-act="ataAbrir" data-id="${e.id}">${ic('edit')} ${e.ata ? 'Editar ata' : 'Digitar ata'}</button><button class="btn sm" data-act="ataAnexar" data-id="${e.id}">${ic('clip')} ${e.ataArquivoId ? 'Trocar ata anexada' : 'Anexar ata'}</button></div>` : ''}</div>
+        ${e.ata ? `<div class="ata-txt">${esc(e.ata)}</div><p class="small muted">Registrada por ${esc(e.ataPor)} em ${fmtStamp(e.ataEm)}.${e.ataArquivoId ? ` <button class="btn sm ghost" data-act="ataVer" data-id="${e.id}">${ic('file')} Abrir ata anexada</button>` : ''}</p>`
+          : e.ataArquivoId ? `<p class="small">Ata anexada: ${esc(e.ataArquivoNome)} <button class="btn sm" data-act="ataVer" data-id="${e.id}">${ic('file')} Abrir</button></p>`
+          : `<p class="small muted">${e.data <= TODAY() ? 'Digite a ata aqui ou anexe a ata já digitada (PDF, foto ou Word).' : 'A ata pode ser registrada depois do evento.'}</p>`}
       </section>`;
   }
 };
@@ -447,10 +471,17 @@ Object.assign(ACT, {
     openModal(`<h2>Caminhada na casa</h2><p class="muted">${esc(a.nome)}</p><div class="fields">
       <div class="field"><label for="mc-tipo">Etapa</label><select id="mc-tipo">${TIPOS_MARCO.map(x => `<option>${x}</option>`).join('')}</select></div>
       <div class="field"><label for="mc-data">Data</label><input id="mc-data" type="date" value="${TODAY()}" max="${TODAY()}"></div>
-      <div class="field full"><label for="mc-desc">Detalhes</label><input id="mc-desc" maxlength="500" placeholder="Ex.: orixá de cabeça, quem conduziu, nome do curso"></div></div>
+      <div class="field full"><label for="mc-desc">Detalhes</label><input id="mc-desc" maxlength="500" placeholder="Ex.: orixá de cabeça, quem conduziu, nome do curso"></div>
+      <div class="field full"><label for="mc-arq">Certidão (opcional)</label><input id="mc-arq" type="file" accept="image/*,application/pdf"><span class="hint">Certidão de batismo, de casamento ou outro comprovante. Foto ou PDF.</span></div></div>
       <div class="modal-actions"><button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="marcoSalvar" data-id="${a.id}">Registrar</button></div>`);
   },
-  marcoSalvar(t) { run(async () => { await api('marco.salvar', { assocId: t.dataset.id, tipo: $('#mc-tipo').value, data: $('#mc-data').value, descricao: $('#mc-desc').value }); closeModal(); render(); toast('Registrado na caminhada'); }); },
+  marcoSalvar(t) { const f = $('#mc-arq').files[0]; run(async () => { const prep = f ? await prepComprovante(f, 2400, 0.85) : {}; await api('marco.salvar', { assocId: t.dataset.id, tipo: $('#mc-tipo').value, data: $('#mc-data').value, descricao: $('#mc-desc').value, ...prep }, { msg: 'Registrando…' }); closeModal(); render(); toast('Registrado na caminhada'); }); },
+  marcoAnexar(t) {
+    openModal(`<h2>Anexar certidão</h2><div class="field"><label for="mc-arq">Arquivo (foto ou PDF)</label><input id="mc-arq" type="file" accept="image/*,application/pdf"></div>
+      <div class="modal-actions"><button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="marcoAnexarOk" data-id="${t.dataset.id}">Anexar</button></div>`);
+  },
+  marcoAnexarOk(t) { const f = $('#mc-arq').files[0]; if (!f) { toast('Escolha o arquivo.', 'bad'); return; } run(async () => { const prep = await prepComprovante(f, 2400, 0.85); await api('marco.anexar', { id: t.dataset.id, ...prep }, { msg: 'Enviando certidão…' }); closeModal(); render(); toast('Certidão anexada'); }); },
+  marcoVer(t) { const m = L('marcos').find(x => x.id === t.dataset.id); run(async () => { const r = await api('marco.arquivo', { id: t.dataset.id }, { msg: 'Abrindo certidão…' }); mostrarArquivo(r, `Certidão${m ? ' · ' + m.tipo : ''}`); }); },
   marcoExcluir(t) { run(async () => { await api('marco.excluir', { id: t.dataset.id }); render(); toast('Registro excluído'); }); },
 });
 
