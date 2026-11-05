@@ -358,6 +358,14 @@ function saldoConta(id, ate) {
   const c = finConta(id); if (!c) return 0;
   return r2((S.finLancamentos || []).reduce((s, l) => s + (!ate || l.data <= ate ? efeitoConta(l, c) : 0), Number(c.saldoInicial) || 0));
 }
+// versão 2.0.3: lançamento pago com data anterior ao "saldo do dia" da conta não entra no saldo nem na prestação de contas
+const foraDoSaldo = l => !l.cancelado && l.status === 'Pago' && [l.contaId, l.tipo === 'Transferência' ? l.contaDestinoId : ''].some(id => { const c = id && finConta(id); return c && l.data < c.saldoInicialData; });
+function avisoForaHTML(lista, onde) {
+  if (!lista.length) return '';
+  const contas = [...new Set(lista.flatMap(l => [l.contaId, l.contaDestinoId]).filter(Boolean))].map(finConta).filter(c => c && lista.some(l => (l.contaId === c.id || l.contaDestinoId === c.id) && l.data < c.saldoInicialData));
+  const menor = lista.reduce((m, l) => l.data < m ? l.data : m, '9999');
+  return `<div class="note warn"><b>${plural(lista.length, 'lançamento ficou', 'lançamentos ficaram')} de fora ${onde}</b><span>A data ${lista.length > 1 ? 'deles é anterior' : 'dele é anterior'} ao saldo inicial de ${contas.map(c => `${esc(c.nome)} (${fmtD(c.saldoInicialData)})`).join(' e ')}. Para incluir, em <b>Contas e categorias</b> edite a conta e ponha no "Saldo do dia" uma data até ${fmtD(addDays(menor, -1))}, com o saldo que havia naquele dia.</span></div>`;
+}
 const saldoTotal = ate => r2((S.finContas || []).reduce((s, c) => s + saldoConta(c.id, ate), 0));
 const pendentes = () => (S.finLancamentos || []).filter(l => !l.cancelado && l.status === 'Pendente').sort((a, b) => a.vencimento.localeCompare(b.vencimento));
 function finAlertas() { const p = pendentes(), h = TODAY(); return { vencidas: p.filter(l => l.vencimento < h), semana: p.filter(l => l.vencimento >= h && diffDays(h, l.vencimento) <= 7) }; }
@@ -1038,6 +1046,7 @@ function finRelatorioTab() {
       <div class="seg" style="align-self:end">${atalho('Este mês', COMP_ATUAL() + '-01', mesFim(COMP_ATUAL()))}${atalho('Mês passado', mAnt + '-01', mesFim(mAnt))}${atalho('Este ano', y + '-01-01', y + '-12-31')}${atalho('Ano passado', (y - 1) + '-01-01', (y - 1) + '-12-31')}</div>
     </div>
     <div class="toolbar"><p class="small muted" style="margin:0;flex:1 1 260px">Resumo para a assembleia e o conselho fiscal. Na impressão, escolha "Salvar como PDF" para guardar ou enviar.</p><button class="btn sm" data-act="relCsv">${ic('download')} Planilha (CSV)</button><button class="btn sm primary" data-act="relImprimir">${ic('print')} Imprimir / PDF</button></div>
+    ${avisoForaHTML((S.finLancamentos || []).filter(l => l.data >= de && l.data <= ate && foraDoSaldo(l)), 'desta prestação de contas')}
     <div class="doc-wrap">${docRel(finRelatorio(de, ate))}</div>`;
 }
 function finCadastrosTab() {
@@ -1045,6 +1054,7 @@ function finCadastrosTab() {
   const usos = id => (S.finLancamentos || []).filter(l => l.categoriaId === id && !l.cancelado).length;
   return `<section class="panel"><div class="panel-head"><h2>Contas</h2><button class="btn sm primary" data-act="finContaNova">${ic('plus')} Nova conta</button></div>
       <p class="small muted">O saldo inicial é o dinheiro que havia na conta no dia em que o controle começou. Lançamentos com data anterior a esse dia ficam no histórico, mas não mudam o saldo.</p>
+      ${avisoForaHTML((S.finLancamentos || []).filter(foraDoSaldo), 'dos saldos e da prestação de contas')}
       <div class="table-wrap cards"><table><thead><tr><th>Conta</th><th>Tipo</th><th>Saldo inicial</th><th class="num">Saldo atual</th><th>Situação</th><th><span class="sr">Ações</span></th></tr></thead><tbody>
       ${(S.finContas || []).map(c => `<tr class="${c.ativa ? '' : 'dim'}"><td class="lead"><b>${esc(c.nome)}</b></td><td data-label="Tipo">${c.tipo === 'Caixa' ? 'Caixa (dinheiro)' : 'Banco / PIX'}</td>
         <td data-label="Saldo inicial" class="num">${fmtBRL(c.saldoInicial)}<div class="s">em ${fmtD(c.saldoInicialData)}</div></td><td data-label="Saldo atual" class="valor">${fmtBRL(saldoConta(c.id))}</td>
@@ -1694,11 +1704,12 @@ function finForm(l, preset = {}) {
     ${l ? '' : `<div class="seg" role="group" aria-label="Tipo de lançamento">${['Entrada', 'Saída', 'Transferência'].map(t => `<button type="button" data-act="finTipo" data-t="${t}" aria-pressed="${t === tipo}">${t}</button>`).join('')}</div>`}
     <div class="fields" id="fin-form">
       <div class="field" data-show="Saída"><label for="l-st">Situação</label><select id="l-st" data-ch="finSt" ${l && l.status === 'Pago' ? 'disabled' : ''}><option value="Pago" ${st === 'Pago' ? 'selected' : ''}>Já foi paga</option><option value="Pendente" ${st === 'Pendente' ? 'selected' : ''}>A pagar (com vencimento)</option></select></div>
-      <div class="field" data-st="Pago"><label for="l-data">Data</label><input id="l-data" type="date" value="${v('data', TODAY())}" max="${TODAY()}"></div>
+      <div class="field" data-st="Pago"><label for="l-data">Data</label><input id="l-data" type="date" value="${v('data', TODAY())}" max="${TODAY()}" data-ch="finAviso"></div>
       <div class="field" data-st="Pendente"><label for="l-venc">Vencimento</label><input id="l-venc" type="date" value="${v('vencimento', TODAY())}"></div>
       <div class="field"><label for="l-valor">Valor (R$)</label><input id="l-valor" type="number" min="0.01" step="0.01" inputmode="decimal" value="${l ? Number(l.valor).toFixed(2) : ''}" placeholder="0,00"></div>
-      <div class="field" data-st="Pago"><label for="l-conta" id="l-conta-lb">Conta</label><select id="l-conta">${contaOpts(conta)}</select></div>
-      <div class="field" data-show="Transferência"><label for="l-dest">Para a conta</label><select id="l-dest">${contaOpts(dest)}</select></div>
+      <div class="field" data-st="Pago"><label for="l-conta" id="l-conta-lb">Conta</label><select id="l-conta" data-ch="finAviso">${contaOpts(conta)}</select></div>
+      <div class="field" data-show="Transferência"><label for="l-dest">Para a conta</label><select id="l-dest" data-ch="finAviso">${contaOpts(dest)}</select></div>
+      <div class="note warn full" id="l-aviso" hidden></div>
       <div class="field" data-show="Entrada Saída"><label for="l-cat">Categoria</label><select id="l-cat"></select></div>
       <div class="field full"><label for="l-desc">Descrição</label><input id="l-desc" maxlength="300" value="${v('descricao')}" placeholder="${tipo === 'Transferência' ? 'Ex.: depósito do caixa no banco' : 'Ex.: doação para a festa, conta de luz de março'}"></div>
       <div class="field" data-show="Entrada Saída"><label for="l-pessoa" id="l-pessoa-lb">Recebido de</label><input id="l-pessoa" list="l-pessoas" maxlength="150" value="${v('pessoa')}" autocomplete="off" placeholder="Nome (opcional)"><datalist id="l-pessoas">${S.associados.filter(a => a.situacao === 'Ativo').map(a => `<option value="${esc(a.nome)}">`).join('')}</datalist></div>
@@ -1721,6 +1732,14 @@ function finFormSync() {
   const cats = (S.finCategorias || []).filter(c => c.tipo === f.tipo && (c.ativa || c.id === cur)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   sel.innerHTML = `<option value="">Escolha…</option>${cats.map(c => `<option value="${c.id}" ${c.id === cur ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}`;
   $$('[data-act="finTipo"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === f.tipo)));
+  finAvisoSync();
+}
+function finAvisoSync() {
+  const el = $('#l-aviso'), f = UI.fin; if (!el || !f) return;
+  const st = f.tipo === 'Saída' ? $('#l-st').value : 'Pago', d = $('#l-data').value;
+  const cs = st === 'Pago' && d ? [$('#l-conta').value, f.tipo === 'Transferência' ? $('#l-dest').value : ''].map(id => id && finConta(id)).filter(c => c && d < c.saldoInicialData) : [];
+  el.hidden = !cs.length;
+  el.innerHTML = cs.length ? `<span><b>Atenção:</b> ${cs.map(c => `a conta ${esc(c.nome)} começa a contar em ${fmtD(c.saldoInicialData)}`).join(' e ')}. Com esta data, o lançamento fica no histórico, mas não entra no saldo nem na prestação de contas. Para incluir, ajuste o "Saldo do dia" da conta em Contas e categorias.</span>` : '';
 }
 // Comprovante: PDF vai como está; foto é reduzida (até 1800 px, JPEG) antes de enviar
 function prepComprovante(file, maxPx = 1800, q = 0.82) {
@@ -2170,6 +2189,7 @@ Object.assign(CHG, {
   finCatF(el) { P.cat = el.value; $('#fin-res').innerHTML = finResults(); },
   finCanc(el) { P.canc = el.checked ? '1' : ''; $('#fin-res').innerHTML = finResults(); },
   finSt() { finFormSync(); },
+  finAviso() { finAvisoSync(); },
   relDe(el) { if (el.value) { P.rde = el.value; render(); } },
   relAte(el) { if (el.value) { P.rate = el.value; render(); } },
   opPerfil(el) { const o = S.operadores[+el.dataset.i]; run(async () => { try { await api('operador.atualizar', { email: o.email, perfil: el.value }); toast(`${o.nome}: perfil ${el.value}`); } finally { render(); } }); },
