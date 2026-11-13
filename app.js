@@ -399,6 +399,7 @@ const NAV = [
   { id: 'estoque', label: 'Estoque', ic: 'box', mod: 'estoque' },
   { id: 'livro', label: 'Livro de registro', ic: 'book', mod: 'livro' },
   { id: 'documentos', label: 'Documentos', ic: 'file', mod: 'documentos' },
+  { id: 'transparencia', label: 'Portal da Transparência', ic: 'link', vis: () => isAdmin() || modOn('transparencia'), badge: () => TP.d ? TP.d.solic.filter(tpPend).length : 0 },
   { sec: 'Tesouraria', fin: true },
   { id: 'financeiro', label: 'Financeiro', ic: 'wallet', fin: true, badge: () => finAlertas().vencidas.length },
   { sec: 'Administração', admin: true },
@@ -422,13 +423,13 @@ function render() {
   if (!configurado()) { app.innerHTML = vSetup(); return; }
   if (!S) { app.innerHTML = UI.login === 'denied' ? vDenied() : vLogin(); if (UI.login === 'start') renderGoogleButton(); return; }
   let v = VIEWS[VIEW];
-  if (!v || (v.admin && !isAdmin()) || (v.fin && !canFin()) || (v.mod && !modOn(v.mod))) { VIEW = 'inicio'; v = VIEWS.inicio; }
+  if (!v || (v.admin && !isAdmin()) || (v.fin && !canFin()) || (v.mod && !modOn(v.mod)) || (v.vis && !v.vis())) { VIEW = 'inicio'; v = VIEWS.inicio; }
   app.innerHTML = shell(v.render());
   if (v.after) v.after();
 }
 function shell(content) {
   const cur = PARENT[VIEW] || VIEW;
-  const nav = NAV.filter(n => (!n.admin || isAdmin()) && (!n.fin || canFin()) && (!n.mod || modOn(n.mod))).map(n => n.sec ? `<div class="nav-sec">${n.sec}</div>` :
+  const nav = NAV.filter(n => (!n.admin || isAdmin()) && (!n.fin || canFin()) && (!n.mod || modOn(n.mod)) && (!n.vis || n.vis())).map(n => n.sec ? `<div class="nav-sec">${n.sec}</div>` :
     `<button data-act="go" data-v="${n.id}" ${cur === n.id ? 'aria-current="page"' : ''}>${ic(n.ic)}<span>${n.label}</span>${n.badge && n.badge() ? `<span class="count">${n.badge()}</span>` : ''}</button>`).join('');
   const k = kpis();
   const bn = (id, label, icn, extra = '') => `<button data-act="go" data-v="${id}" ${cur === id ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${extra}</button>`;
@@ -449,7 +450,7 @@ function shell(content) {
     ${bn('associados', 'Associados', 'users')}
     <button class="main-act" data-act="go" data-v="associadoForm" ${VIEW === 'associadoForm' && !P.id ? 'aria-current="page"' : ''}><span class="ic">${ic('plus')}</span><span>Novo</span></button>
     ${bn('mensalidades', 'Mensalidades', 'coin', k.inadimplentes.length ? `<span class="dot">${k.inadimplentes.length}</span>` : '')}
-    <button data-act="menu" ${['carteirinhas', 'funcoes', 'financeiro', 'configuracoes', 'operadores', 'atividades', 'cobranca', 'agenda', 'assembleias', 'campanhas', 'estoque', 'livro', 'documentos'].includes(cur) ? 'aria-current="page"' : ''}>${ic('more')}<span>Mais</span>${k.vencidas.length ? `<span class="dot">${k.vencidas.length}</span>` : ''}</button>
+    <button data-act="menu" ${['carteirinhas', 'funcoes', 'financeiro', 'configuracoes', 'operadores', 'atividades', 'cobranca', 'agenda', 'assembleias', 'campanhas', 'estoque', 'livro', 'documentos', 'transparencia'].includes(cur) ? 'aria-current="page"' : ''}>${ic('more')}<span>Mais</span>${k.vencidas.length ? `<span class="dot">${k.vencidas.length}</span>` : ''}</button>
   </nav>
   ${UI.menu ? `<div class="overlay" data-act="menuClose" style="place-items:end stretch;padding:0"></div><div class="sheet-menu" role="menu">
     <button data-act="go" data-v="carteirinhas">${ic('card')} Carteirinhas${k.vencidas.length ? ` (${k.vencidas.length} vencidas)` : ''}</button>
@@ -2195,6 +2196,88 @@ Object.assign(CHG, {
   opPerfil(el) { const o = S.operadores[+el.dataset.i]; run(async () => { try { await api('operador.atualizar', { email: o.email, perfil: el.value }); toast(`${o.nome}: perfil ${el.value}`); } finally { render(); } }); },
 });
 ACT.assOk = () => run(async () => { await api('config.assinatura', { imagem: UI.assinatura }, { msg: 'Salvando assinatura…' }); UI.assinatura = null; closeModal(); render(); toast('Assinatura salva'); });
+
+/* ---- Portal da Transparência (versão 2.2): pedidos, documentos, seções e acessos ---- */
+const TP = { d: null, aba: 'solic', f: 'pend', load: false };
+const TP_EST = [['ativo', 'Ativo'], ['oculto', 'Oculto'], ['manutencao', 'Em manutenção']];
+const TP_MOT = { 'Doença': 'Saúde' };
+const tpPend = s => s.status === 'Enviado' || s.status === 'Em análise';
+async function tpCarregar() { TP.load = true; try { TP.d = await api('transp.painel', {}, { silent: true }); } catch (e) { toast(e.message, 'err'); } TP.load = false; if (VIEW === 'transparencia') render(); }
+VIEWS.transparencia = {
+  vis: () => isAdmin() || modOn('transparencia'),
+  render() {
+    const d = TP.d, adm = isAdmin();
+    const head = `<div class="page-head"><div><h1>Portal da Transparência</h1><p class="sub">Pedidos dos associados, documentos publicados e o que aparece no portal. ${modOn('transparencia') ? pill('Portal ligado', 'ok') : pill('Portal desligado em Configurações · Módulos', 'warn')}</p></div><button class="btn sm" data-act="tpAtualizar">${ic('refresh')} Atualizar</button></div>`;
+    if (!d) return head + '<div class="spinner"></div>';
+    const pend = d.solic.filter(tpPend).length, tab = (id, label, n) => `<button class="tab ${TP.aba === id ? 'on' : ''}" data-act="tpAba" data-a="${id}">${label}${n ? ` <span class="count">${n}</span>` : ''}</button>`;
+    let corpo = '';
+    if (TP.aba === 'solic') {
+      const l = d.solic.filter(s => TP.f === 'todas' || tpPend(s));
+      corpo = `<div class="seg" style="margin-bottom:10px"><button class="btn sm ${TP.f === 'pend' ? 'primary' : ''}" data-act="tpF" data-f="pend">Em andamento (${pend})</button><button class="btn sm ${TP.f === 'todas' ? 'primary' : ''}" data-act="tpF" data-f="todas">Todas</button></div>
+        ${!d.podeIsencao ? '<p class="small muted">Pedidos de isenção aparecem só para a Tesouraria e o Administrador.</p>' : ''}
+        <div class="tp-sol">${l.map(s => `<div class="card" style="padding:14px;display:grid;gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${s.tipo === 'isencao' ? 'Isenção de mensalidade' : 'Alteração: ' + esc(s.campo)}</b>${pill(s.status, s.status === 'Aprovado' ? 'ok' : s.status === 'Recusado' ? 'bad' : s.status === 'Em análise' ? 'warn' : 'mute')}</div>
+          <div class="small"><button class="row-link" data-act="go" data-v="associado" data-id="${s.assocId}">${esc(s.nome)} · ${String(s.matricula).padStart(4, '0')}</button> · enviado em ${fmtStamp(s.criadoEm)}</div>
+          ${s.tipo === 'isencao' ? `<div class="small">Motivo: <b>${esc(TP_MOT[s.motivo] || s.motivo)}</b> · a partir de ${fmtComp(s.inicio)} · ${s.meses} ${s.meses === 1 ? 'mês' : 'meses'}</div>` : `<div class="small">Como deveria estar: <b>${esc(s.valorNovo)}</b></div>`}
+          ${s.justificativa ? `<div class="small muted">${esc(s.justificativa)}</div>` : ''}${s.resposta ? `<div class="small">Resposta: ${esc(s.resposta)} <span class="muted">(${esc(s.respondidoPor || '')})</span></div>` : ''}
+          <div class="row-actions" style="display:flex;gap:6px;flex-wrap:wrap">${s.anexo ? `<button class="btn sm" data-act="tpAnexo" data-id="${s.id}">${ic('clip')} Ver anexo</button>` : ''}${tpPend(s) ? `${s.status === 'Enviado' ? `<button class="btn sm" data-act="tpResp" data-id="${s.id}" data-s="Em análise">Em análise</button>` : ''}<button class="btn sm primary" data-act="tpResp" data-id="${s.id}" data-s="Aprovado">${ic('check')} ${s.tipo === 'isencao' ? 'Aprovar isenção' : 'Marcar como feito'}</button><button class="btn sm" data-act="tpResp" data-id="${s.id}" data-s="Recusado">${ic('x')} Recusar</button>` : ''}</div></div>`).join('') || `<p class="muted">${TP.f === 'pend' ? 'Nenhum pedido em andamento.' : 'Nenhum pedido.'}</p>`}</div>`;
+    } else if (TP.aba === 'docs') {
+      corpo = `<form class="card" data-form="tpDoc" style="padding:14px;display:grid;gap:10px"><h2 style="margin:0;font-size:1.05rem">Publicar documento</h2>
+          <div class="note warn"><span>${ic('alert')} Confira se o documento não tem CPF, RG ou endereço completo. Atas com nomes e assinaturas podem ser publicadas.</span></div>
+          <div class="grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><label class="field"><span>Título</span><input id="td-tit" maxlength="150" required></label>
+          <label class="field"><span>Tipo</span><select id="td-tipo">${['Estatuto', 'Ata', 'Balancete', 'Outro'].map(t => `<option>${t}</option>`).join('')}</select></label>
+          <label class="field"><span>Data do documento</span><input type="date" id="td-data" value="${TODAY()}"></label>
+          <label class="field"><span>Arquivo (PDF ou foto, até 6 MB)</span><input type="file" id="td-arq" accept="application/pdf,image/jpeg,image/png" required></label></div>
+          <div><button class="btn primary">${ic('plus')} Publicar no portal</button></div></form>
+        <div class="table-wrap cards" style="margin-top:12px"><table><thead><tr><th>Documento</th><th>Tipo</th><th>Data</th><th>Publicado</th><th></th></tr></thead><tbody>
+        ${d.docs.map(x => `<tr><td data-label="Documento"><b>${esc(x.titulo)}</b></td><td data-label="Tipo">${esc(x.tipo)}</td><td data-label="Data">${fmtD(x.data)}</td><td data-label="Publicado" class="small">${fmtStamp(x.publicadoEm)}<br><span class="muted">${esc(x.por)}</span></td>
+          <td><button class="btn sm" data-act="tpDocVer" data-id="${x.id}">Ver</button>${adm ? ` <button class="btn sm" data-act="tpDocRem" data-id="${x.id}">${ic('x')} Retirar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Nenhum documento publicado.</td></tr>'}</tbody></table></div>`;
+    } else if (TP.aba === 'secoes' && adm) {
+      corpo = `<p class="small muted">Oculto: some do menu. Em manutenção: aparece com a mensagem abaixo. O portal inteiro liga e desliga em Configurações · Módulos.</p>
+        <div class="table-wrap cards"><table><thead><tr><th>Parte do portal</th><th>Estado</th><th>Mensagem (manutenção)</th></tr></thead><tbody>
+        ${Object.keys(d.rotulos).map(k => `<tr class="tp-sec" data-k="${k}"><td data-label="Parte"><b>${esc(d.rotulos[k])}</b></td><td data-label="Estado"><select data-tp="estado" aria-label="Estado de ${esc(d.rotulos[k])}">${TP_EST.filter(e => k !== 'portal' || e[0] !== 'oculto').map(([v, t]) => `<option value="${v}" ${d.secoes[k].estado === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+          <td data-label="Mensagem"><input data-tp="msg" maxlength="200" value="${esc(d.secoes[k].msg)}" placeholder="Ex.: Voltamos amanhã" style="width:100%"></td></tr>`).join('')}</tbody></table></div>
+        <div style="margin-top:10px"><button class="btn primary" data-act="tpSecSalvar">${ic('check')} Salvar</button></div>`;
+    } else if (TP.aba === 'acessos' && adm && d.acessos) {
+      const a = d.acessos;
+      corpo = `<div class="kpis">${kpiBox('Entradas hoje', a.hoje, 'no portal')}${kpiBox('Entradas em 30 dias', a.entradas30, 'no portal')}${kpiBox('Associados em 30 dias', a.pessoas30, 'pessoas diferentes')}</div>
+        <div class="card" style="padding:14px;margin-top:12px"><h2 style="margin:0 0 8px;font-size:1.05rem">Mais vistos (30 dias)</h2>${a.secoes.map(x => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${esc(x.secao)}</span><b>${x.n}</b></div>`).join('') || '<p class="muted">Sem acessos.</p>'}</div>
+        <div class="table-wrap cards" style="margin-top:12px"><table><thead><tr><th>Data/hora</th><th>Associado</th><th>O que viu</th></tr></thead><tbody>${a.ultimos.map(x => `<tr><td data-label="Data/hora" class="num">${fmtStamp(x.ts)}</td><td data-label="Associado">${esc(x.nome)}</td><td data-label="O que viu">${esc(x.secao)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Sem acessos.</td></tr>'}</tbody></table></div>`;
+    }
+    return head + `<div class="tabs" role="tablist">${tab('solic', 'Solicitações', pend)}${tab('docs', 'Documentos')}${adm ? tab('secoes', 'Seções') + tab('acessos', 'Acessos') : ''}</div>${corpo}`;
+  },
+  after() { if (!TP.d && !TP.load) tpCarregar(); }
+};
+Object.assign(ACT, {
+  tpAtualizar() { TP.d = null; render(); },
+  tpAba(t) { TP.aba = t.dataset.a; render(); },
+  tpF(t) { TP.f = t.dataset.f; render(); },
+  tpAnexo(t) { run(async () => { const r = await api('transp.solicAnexo', { id: t.dataset.id }, { msg: 'Abrindo anexo…' }); mostrarArquivo(r, 'Anexo da solicitação'); }); },
+  tpDocVer(t) { run(async () => { const r = await api('transp.docObter', { id: t.dataset.id }, { msg: 'Abrindo documento…' }); mostrarArquivo(r, r.nome); }); },
+  tpDocRem(t) { const x = TP.d.docs.find(d => d.id === t.dataset.id); openModal(`<h2>Retirar do portal?</h2><p>"${esc(x.titulo)}" deixa de aparecer para os associados. O arquivo continua guardado no Drive.</p><div class="modal-actions"><button class="btn" data-act="close">Cancelar</button><button class="btn danger" data-act="tpDocRemOk" data-id="${x.id}">Retirar</button></div>`); },
+  tpDocRemOk(t) { run(async () => { await api('transp.docRemover', { id: t.dataset.id }); closeModal(); toast('Documento retirado do portal.'); TP.d = null; render(); }); },
+  tpResp(t) {
+    const s = TP.d.solic.find(x => x.id === t.dataset.id), st = t.dataset.s, ise = s.tipo === 'isencao' && st === 'Aprovado';
+    if (st === 'Em análise') return run(async () => { await api('transp.solicResponder', { id: s.id, status: st }); toast('Marcado como em análise. O associado foi avisado.'); TP.d = null; render(); });
+    const meses = Array.from({ length: 12 }, (_, i) => `<option ${i + 1 === s.meses ? 'selected' : ''}>${i + 1}</option>`).join('');
+    openModal(`<h2>${st === 'Recusado' ? 'Recusar pedido' : ise ? 'Aprovar isenção' : 'Marcar como feito'}</h2><p class="small">${esc(s.nome)} · ${s.tipo === 'isencao' ? 'Isenção' : 'Alteração: ' + esc(s.campo)}</p>
+      ${ise ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>Início (AAAA-MM)</span><input id="tr-ini" value="${esc(s.inicio)}" pattern="\\d{4}-\\d{2}"></label><label class="field"><span>Meses</span><select id="tr-meses">${meses}</select></label></div><p class="small muted">Cria a isenção com as mesmas regras de "Conceder isenção"${s.anexo ? ' e guarda o anexo nos documentos do associado' : ''}.</p>` : ''}
+      ${!ise && st === 'Aprovado' ? '<p class="small muted">Faça a alteração na ficha do associado antes de marcar como feito.</p>' : ''}
+      <label class="field"><span>${st === 'Recusado' ? 'Motivo da recusa (o associado vê)' : 'Resposta ao associado (opcional)'}</span><textarea id="tr-resp" rows="3" maxlength="500"></textarea></label>
+      <div class="modal-actions"><button class="btn" data-act="close">Cancelar</button><button class="btn ${st === 'Recusado' ? 'danger' : 'primary'}" data-act="tpRespOk" data-id="${s.id}" data-s="${st}">Confirmar</button></div>`);
+  },
+  tpRespOk(t) {
+    const p = { id: t.dataset.id, status: t.dataset.s, resposta: $('#tr-resp').value }; if ($('#tr-ini')) { p.inicio = $('#tr-ini').value.trim(); p.meses = +$('#tr-meses').value; }
+    run(async () => { const r = await api('transp.solicResponder', p); closeModal(); toast(`Pedido ${p.status === 'Recusado' ? 'recusado' : 'aprovado'}. ${r.avisado ? 'O associado recebeu um e-mail.' : 'Sem e-mail no cadastro: ele vê a resposta no portal.'}`); TP.d = null; render(); });
+  },
+  tpSecSalvar() {
+    const secoes = {}; document.querySelectorAll('.tp-sec').forEach(r => { secoes[r.dataset.k] = { estado: r.querySelector('[data-tp=estado]').value, msg: r.querySelector('[data-tp=msg]').value }; });
+    run(async () => { const r = await api('transp.secoes', { secoes }); TP.d.secoes = r.secoes; toast(r.mudou.length ? 'Salvo: ' + r.mudou.join(', ') : 'Nada mudou.'); render(); });
+  },
+});
+FORM.tpDoc = () => {
+  const f = $('#td-arq').files[0]; if (!f) return toast('Escolha o arquivo.', 'err'); if (f.size > 6 * 1024 * 1024) return toast('Arquivo maior que 6 MB.', 'err');
+  run(async () => { const dados = await blobB64(f); await api('transp.docSalvar', { titulo: $('#td-tit').value, tipo: $('#td-tipo').value, data: $('#td-data').value, mime: f.type, dados }, { msg: 'Publicando…' }); toast('Documento publicado no portal.'); TP.d = null; render(); });
+};
 
 document.addEventListener('click', e => { const t = e.target.closest('[data-act]'); if (!t || t.disabled) return; const f = ACT[t.dataset.act]; if (f) { if (t.tagName === 'A') e.preventDefault(); f(t, e); } });
 document.addEventListener('input', e => { const n = e.target.dataset && e.target.dataset.in; if (n && INP[n]) INP[n](e.target); });
