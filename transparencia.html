@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Portal da Transparência · Luzes de Aruanda</title>
+  <meta name="theme-color" content="#1C3557">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="stylesheet" href="publico.css">
+  <script src="config.js"></script>
+  <style>
+    /* versão 2.1: Portal da Transparência (fase 1: entrada, Início e Finanças). Só leitura: nada é baixado nem impresso. */
+    body{background:var(--bg)}
+    .tp{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
+    .tp-top{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+    .tp-top img.logo{width:42px;height:42px;border-radius:50%;background:#fff;object-fit:contain}
+    .tp-top .tit b{display:block;font-size:1.05rem;color:var(--sea)}.tp-top .tit span{font-size:.78rem;color:var(--muted)}
+    .tp-quem{margin-left:auto;display:flex;align-items:center;gap:10px;text-align:right}.tp-quem img,.tp-quem .sem{width:38px;height:46px;border-radius:6px;object-fit:cover;border:2px solid var(--brand);background:var(--bg)}
+    .tp-quem b{display:block;font-size:.9rem}.tp-quem span{font-size:.75rem;color:var(--muted)}
+    .tp-corpo{display:grid;grid-template-columns:210px 1fr;min-height:0}
+    .tp-side{background:var(--sea);color:#dfe7f1;padding:18px 12px;display:flex;flex-direction:column;gap:4px}
+    .tp-side .sec{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.75;padding:4px 10px 8px}
+    .tp-nav{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:inherit;font:inherit;padding:10px;border-radius:9px;cursor:pointer;text-align:left}
+    .tp-nav svg{width:20px;height:20px}.tp-nav[aria-current=page]{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 3px 0 0 #E0A526}
+    .tp-main{padding:20px 22px 90px;display:grid;gap:14px;align-content:start;max-width:1120px;width:100%}
+    .tp-main h1{margin:0;font-size:1.5rem;color:var(--sea)}.tp-sub{margin:-8px 0 0;color:var(--muted);font-size:.9rem}
+    .tp-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;min-width:0}
+    .tp-card h2{margin:0;font-size:1.02rem}
+    .kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+    .k{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:12px;padding:12px}
+    .k span{display:block;font-size:.8rem;color:var(--muted)}.k b{font-size:1.25rem}.k.neg{border-left-color:#C98A1D}.k.sea{border-left-color:var(--sea)}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .selo{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-weight:700;font-size:.8rem}
+    .selo.ok{background:var(--ok-soft);color:var(--ok)}.selo.warn{background:var(--warn-soft);color:var(--warn)}.selo.bad{background:var(--bad-soft);color:var(--bad)}
+    .sit{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end}.sit dt{font-size:.78rem;color:var(--muted)}.sit dd{margin:0;font-weight:600}
+    .lin{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.lin:last-child{border-bottom:0}.lin .s{font-size:.8rem;color:var(--muted)}
+    .per{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.per button{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:9px;padding:7px 14px;font:inherit;cursor:pointer}
+    .per button[aria-pressed=true]{background:var(--sea);color:#fff;border-color:var(--sea)}.per input{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)}
+    table{width:100%;border-collapse:collapse;font-size:.88rem}th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}th{font-size:.75rem;color:var(--muted);font-weight:600}td.n,th.n{text-align:right;white-space:nowrap}
+    .bars{display:flex;align-items:flex-end;gap:6px;height:150px;padding-top:6px;overflow-x:auto}.bars .m{display:grid;justify-items:center;gap:4px;min-width:34px;flex:1}
+    .bars .par{display:flex;align-items:flex-end;gap:3px;height:120px}.bars .par i{display:block;width:11px;border-radius:3px 3px 0 0;background:var(--brand)}.bars .par i.s{background:#C98A1D}.bars small{font-size:.7rem;color:var(--muted)}
+    .leg{display:flex;gap:14px;font-size:.78rem;color:var(--muted)}.leg i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--brand);margin-right:4px}.leg i.s{background:#C98A1D}
+    .cat{display:grid;gap:3px;padding:5px 0}.cat div{display:flex;justify-content:space-between;font-size:.88rem}.cat span.b{height:6px;border-radius:4px;background:var(--line);overflow:hidden}.cat span.b i{display:block;height:100%;background:var(--brand)}.cat.s span.b i{background:#C98A1D}
+    .nota{font-size:.8rem;color:var(--muted)}
+    .tp-pe{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.78rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+    .tp-bottom{display:none}
+    .entrada{max-width:520px;margin:30px auto;padding:0 16px;display:grid;gap:14px}
+    .entrada input[type=date]{border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;background:var(--surface);color:var(--fg);width:100%}
+    .aviso{display:grid;gap:8px;justify-items:center;text-align:center;padding:26px 18px}.aviso svg{width:48px;height:48px}
+    .cards-m{display:none}
+    @media (max-width:860px){
+      .tp-corpo{grid-template-columns:1fr}.tp-side{display:none}.grid2{grid-template-columns:1fr}.tp-main{padding:14px 14px 90px}
+      .tp-quem div{display:none}
+      .tp-bottom{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:6}
+      .tp-bottom button{border:0;background:none;color:var(--muted);display:grid;justify-items:center;gap:2px;font:inherit;font-size:.72rem;padding:4px 16px}.tp-bottom svg{width:22px;height:22px}.tp-bottom [aria-current=page]{color:var(--sea);font-weight:700}
+      .tabela-w{display:none}.cards-m{display:grid;gap:8px}.cm{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;justify-content:space-between;gap:10px}
+      .tp-contas td:nth-child(5),.tp-contas th:nth-child(5){display:none}
+    }
+    @media print{body *{display:none!important}body::after{content:"A impressão não está disponível no Portal da Transparência.";display:block;padding:40px;font:18px sans-serif}}
+  </style>
+</head>
+<body>
+<div id="app"><div class="spinner" role="status" aria-label="Carregando"></div></div>
+<script>
+'use strict';
+(function () {
+  const CFG = window.ASSOCIADOS_CONFIG || {}, app = document.getElementById('app'), $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmtD = iso => { if (!iso) return '—'; const [y, m, d] = String(iso).slice(0, 10).split('-'); return `${d}/${m}/${y}`; };
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'], MESL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const fmtComp = c => { const [y, m] = String(c).split('-'); return `${MESL[+m - 1]}/${y}`; };
+  const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const dias = iso => Math.round((new Date(iso + 'T12:00:00') - new Date(hoje() + 'T12:00:00')) / 864e5);
+  const sv = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  const IC = { casa: sv('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>'), fin: sv('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>'),
+    no: sv('<circle cx="12" cy="12" r="9.5"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>'), cad: sv('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>') };
+  const ses = { get() { try { const x = JSON.parse(sessionStorage.getItem('trSes') || 'null'); return x && x.exp > Date.now() ? x : null; } catch (e) { return null; } }, set(t, c) { try { sessionStorage.setItem('trSes', JSON.stringify({ t, c, exp: Date.now() + 4 * 3600e3 })); } catch (e) { } }, sair() { try { sessionStorage.removeItem('trSes'); } catch (e) { } } };
+  async function api(action, payload) {
+    let r; try { r = await fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify({ action, payload }) }); } catch (e) { throw Object.assign(new Error('Sem conexão. Confira a internet e tente de novo.'), { code: 'NET' }); }
+    const j = await r.json().catch(() => ({ ok: false, error: { code: 'NET', message: 'Resposta inválida do servidor. Tente de novo.' } }));
+    if (!j.ok) throw Object.assign(new Error(j.error.message), { code: j.error.code }); return j.data.result;
+  }
+  const topo = (quem) => `<header class="tp-top"><img class="logo" src="logo.png" alt=""><div class="tit"><b>Portal da Transparência</b><span>${esc(ST.assoc || 'Associação Centro de Umbanda Luzes de Aruanda')}</span></div>${quem || ''}</header>`;
+  const AV = { LINK: ['bad', 'Link inválido ou carteirinha substituída'], INATIVO: ['warn', 'Associado não ativo'], VENCIDA: ['bad', 'Carteirinha não válida para este acesso'], DESLIGADO: ['warn', 'Portal ainda não disponível'], NET: ['warn', 'Sem internet'], SEM: ['warn', 'Acesse pela sua carteirinha'] };
+  function aviso(code, msg) { const [cls, tit] = AV[code] || ['bad', 'Não foi possível abrir']; app.innerHTML = `<div class="tp">${topo()}<div class="entrada"><div class="tp-card aviso"><span class="selo ${cls}">${cls === 'bad' ? 'Acesso bloqueado' : 'Aviso'}</span><span style="color:var(--${cls === 'bad' ? 'bad' : 'warn'})">${IC.no}</span><h2>${esc(tit)}</h2><p>${esc(msg)}</p>${code === 'NET' ? '<button class="btn primary" id="de-novo">Tentar de novo</button>' : ''}</div></div></div>`; const b = $('#de-novo'); if (b) b.onclick = iniciar; }
+  // Tela 0: QR Code → confirma a data de nascimento
+  async function entradaQR(codigo) {
+    app.innerHTML = `<div class="tp">${topo()}<div class="entrada"><div class="spinner"></div></div></div>`;
+    let v; try { v = await api('publico.validar', { codigo }); } catch (e) { return aviso(e.code === 'NET' ? 'NET' : 'LINK', e.message); }
+    ST.assoc = v.assocNome || ''; if (!v.encontrada || !v.valida) return aviso('VENCIDA', v.motivo || 'Carteirinha não está válida para este acesso.');
+    if (!v.transparencia) return aviso('DESLIGADO', 'O Portal da Transparência ainda não está disponível.');
+    app.innerHTML = `<div class="tp">${topo()}<div class="entrada"><div class="tp-card"><span class="selo ok">Carteirinha válida</span><div style="display:flex;gap:12px;align-items:center">${v.foto ? `<img src="data:image/jpeg;base64,${v.foto}" alt="" style="width:56px;height:68px;border-radius:6px;object-fit:cover">` : ''}<div><b>${esc(v.nome)}</b><div class="small muted">Matrícula ${String(v.matricula).padStart(4, '0')}</div></div></div></div>
+      <form class="tp-card" id="f-nasc"><h2>Confirme que é você</h2><p class="small muted" style="margin:0">Informe sua data de nascimento para liberar o acesso.</p><label class="small" for="nasc">Data de nascimento</label><input type="date" id="nasc" required max="${hoje()}">
+        <p class="small" id="nasc-msg" style="margin:0;color:var(--bad)" role="alert"></p><div class="btns" style="grid-template-columns:1fr 1fr"><button class="btn primary">Entrar</button><a class="btn" href="validar.html?c=${encodeURIComponent(codigo)}">Cancelar</a></div><p class="small muted" style="margin:0">Acesso só para associados ativos.</p></form></div></div>`;
+    $('#f-nasc').onsubmit = async ev => { ev.preventDefault(); const m = $('#nasc-msg'); m.textContent = ''; try { const r = await api('publico.transpEntrar', { codigo, nascimento: $('#nasc').value }); ses.set(r.token, codigo); history.replaceState(null, '', 'transparencia.html'); carregar(); } catch (e) { if (['DATA', 'BLOQUEADO', 'NET'].includes(e.code)) m.textContent = e.message; else aviso(e.code, e.message); } };
+  }
+  const ST = { pg: 'inicio', per: 'ano', de: '', ate: '', d: null, mais: 20, assoc: '' };
+  function periodo() { const h = hoje(), y = h.slice(0, 4), m = +h.slice(5, 7); if (ST.per === 'mes') return [h.slice(0, 8) + '01', h]; if (ST.per === 'tri') { const t = Math.floor((m - 1) / 3) * 3 + 1; return [`${y}-${String(t).padStart(2, '0')}-01`, h]; } if (ST.per === 'datas' && ST.de && ST.ate) return [ST.de, ST.ate]; return [y + '-01-01', h]; }
+  async function carregar() {
+    const s = ses.get(); if (!s) { const c = (ses.ultimo || ''); return c ? entradaQR(c) : aviso('SEM', 'Abra o Portal da Transparência pelo link pessoal ou pelo QR Code da sua carteirinha.'); }
+    const [de, ate] = periodo(); if (!ST.d) app.innerHTML = `<div class="tp">${topo()}<div class="entrada"><div class="spinner"></div></div></div>`;
+    try { ST.d = await api('publico.transparencia', { token: s.t, de, ate }); ST.assoc = ST.d.assoc.nome; ST.mais = 20; render(); }
+    catch (e) { if (e.code === 'LINK' || e.code === 'INATIVO' || e.code === 'VENCIDA') ses.sair(); aviso(e.code, e.message); }
+  }
+  const PAGS = [['inicio', 'Início', IC.casa], ['fin', 'Finanças', IC.fin]];
+  function render() {
+    const d = ST.d, a = d.associado;
+    const quem = `<div class="tp-quem"><div><b>${esc(a.nome.split(' ').slice(0, 2).join(' '))}</b><span>Associado · ${String(a.matricula).padStart(4, '0')}</span></div>${a.foto ? `<img src="data:image/jpeg;base64,${a.foto}" alt="">` : '<span class="sem"></span>'}</div>`;
+    const nav = PAGS.map(([k, t, ic]) => `<button class="tp-nav" data-pg="${k}" ${ST.pg === k ? 'aria-current="page"' : ''}>${ic}<span>${t}</span></button>`).join('');
+    app.innerHTML = `<div class="tp">${topo(quem)}<div class="tp-corpo"><nav class="tp-side" aria-label="Menu"><div class="sec">Área do associado</div>${nav}</nav>
+      <main class="tp-main" id="conteudo">${ST.pg === 'fin' ? financas() : inicio()}
+      <div class="tp-pe"><span>Consulta à Secretaria · Dados atualizados em ${esc(fmtD(d.fin.atualizadoEm) + ' ' + String(d.fin.atualizadoEm).slice(11))}</span><button class="btn" id="sair" style="padding:6px 14px">Sair</button></div></main></div>
+      <nav class="tp-bottom" aria-label="Menu">${PAGS.map(([k, t, ic]) => `<button data-pg="${k}" ${ST.pg === k ? 'aria-current="page"' : ''}>${ic}<span>${t}</span></button>`).join('')}</nav></div>`;
+    document.querySelectorAll('[data-pg]').forEach(b => { b.onclick = () => { ST.pg = b.dataset.pg; render(); scrollTo(0, 0); }; });
+    $('#sair').onclick = () => { ses.sair(); ST.d = null; aviso('SEM', 'Você saiu. Para entrar de novo, use o link ou o QR Code da sua carteirinha.'); };
+    if (ST.pg === 'fin') ligarFin();
+  }
+  function selo(s) { return s.estado === 'emdia' ? '<span class="selo ok">Em dia</span>' : s.estado === 'tolerancia' ? `<span class="selo warn">${s.atraso === 1 ? '1 mês em aberto' : s.atraso + ' meses em aberto'}</span> <span class="small" style="color:var(--warn)">Dentro da tolerância</span>` : `<span class="selo bad">Em atraso (${s.atraso} ${s.atraso === 1 ? 'mês' : 'meses'})</span>`; }
+  function vence(v) { const n = dias(v); return n < 0 ? `<span class="selo bad">Vencida há ${-n} ${-n === 1 ? 'dia' : 'dias'}</span>` : `<span class="selo warn">${n === 0 ? 'Vence hoje' : `Vence em ${n} ${n === 1 ? 'dia' : 'dias'}`}</span>`; }
+  function inicio() {
+    const d = ST.d, s = d.situacao, f = d.fin;
+    return `<h1>Início</h1><p class="tp-sub">Olá, ${esc(d.associado.nome.split(' ')[0])}. Acompanhe sua situação e os principais movimentos da associação.</p>
+      <section class="tp-card"><h2>Minha situação</h2><div>${selo(s)} <span class="small" style="margin-left:6px">${s.emDiaAno} de ${s.vencidosAno} ${s.vencidosAno === 1 ? 'mês vencido' : 'meses vencidos'} em ${s.ano}</span></div>
+        <dl class="sit"><div><dt>Último pagamento</dt><dd>${s.ultimo ? `${fmtD(s.ultimo.data)} · ${brl(s.ultimo.valor)}` : '—'}</dd></div><div><dt>Próximo vencimento</dt><dd>${s.proximo ? `${fmtComp(s.proximo.competencia)} · ${brl(s.proximo.valor)}` : '—'}</dd></div></dl></section>
+      <div class="kp">${f.saldoAtual.map(c => `<div class="k sea"><span>Saldo ${/caixa|dinheiro/i.test(c.tipo + c.nome) ? 'em caixa' : 'em ' + esc(c.nome)}</span><b>${brl(c.saldo)}</b></div>`).join('')}<div class="k"><span>Entradas no mês</span><b>${brl(f.mes.ent)}</b></div><div class="k neg"><span>Saídas no mês</span><b>${brl(f.mes.sai)}</b></div></div>
+      <div class="grid2"><section class="tp-card"><h2>Contas vencendo</h2>${f.vencendo.length ? f.vencendo.map(x => `<div class="lin"><div><b>${esc(x.descricao)}</b><div class="s">${fmtD(x.vencimento)}${x.categoria ? ' · ' + esc(x.categoria) : ''}</div></div><div style="text-align:right"><b>${brl(x.valor)}</b><div>${vence(x.vencimento)}</div></div></div>`).join('') : '<p class="nota">Nenhuma conta pendente.</p>'}</section>
+        <section class="tp-card"><h2>Próximos eventos</h2>${f.eventos.length ? f.eventos.map(e => `<div class="lin"><div><b>${esc(e.titulo || e.tipo)}</b><div class="s">${esc(e.tipo || '')}${e.local ? ' · ' + esc(e.local) : ''}</div></div><div style="text-align:right"><b>${fmtD(e.data)}</b><div class="s">${esc(e.hora || '')}</div></div></div>`).join('') : '<p class="nota">Nenhum evento agendado.</p>'}</section></div>`;
+  }
+  function financas() {
+    const f = ST.d.fin, trf = f.contas.some(c => c.trf), maxM = Math.max(1, ...f.meses.map(m => Math.max(m.ent, m.sai))), mxE = Math.max(1, ...f.ent.map(x => x.v)), mxS = Math.max(1, ...f.sai.map(x => x.v)), res = f.totalEnt - f.totalSai;
+    const per = [['mes', 'Mês'], ['tri', 'Trimestre'], ['ano', 'Ano'], ['datas', 'Escolher datas']];
+    return `<h1>Prestação de contas</h1><p class="tp-sub">Consulte as entradas, saídas e saldos por período.</p>
+      <section class="tp-card"><div class="per"><span class="small muted">Período</span>${per.map(([k, t]) => `<button data-per="${k}" aria-pressed="${ST.per === k}">${t}</button>`).join('')}
+        ${ST.per === 'datas' ? `<input type="date" id="p-de" value="${ST.de || f.de}" aria-label="De"><input type="date" id="p-ate" value="${ST.ate || f.ate}" aria-label="Até"><button id="p-ok">Ver</button>` : ''}</div><span class="small muted">De ${fmtD(f.de)} a ${fmtD(f.ate)}</span></section>
+      <div class="kp"><div class="k"><span>Total de entradas</span><b>${brl(f.totalEnt)}</b></div><div class="k neg"><span>Total de saídas</span><b style="color:var(--bad)">${brl(f.totalSai)}</b></div><div class="k sea"><span>Resultado do período</span><b style="color:var(--${res >= 0 ? 'ok' : 'bad'})">${res >= 0 ? '+ ' : '− '}${brl(Math.abs(res))}</b></div></div>
+      <div class="grid2"><section class="tp-card"><h2>Saldos por conta</h2><table class="tp-contas"><thead><tr><th>Conta</th><th class="n">Saldo inicial</th><th class="n">Entradas</th><th class="n">Saídas</th>${trf ? '<th class="n">Transf.</th>' : '<th class="n"></th>'}<th class="n">Saldo final</th></tr></thead><tbody>
+        ${f.contas.map(c => `<tr><td>${esc(c.nome)}</td><td class="n">${brl(c.ant)}</td><td class="n">${brl(c.ent)}</td><td class="n">${brl(c.sai)}</td><td class="n">${trf ? brl(c.trf) : ''}</td><td class="n"><b>${brl(c.fim)}</b></td></tr>`).join('')}
+        <tr><td><b>Total</b></td><td class="n">${brl(f.contas.reduce((s, c) => s + c.ant, 0))}</td><td class="n">${brl(f.contas.reduce((s, c) => s + c.ent, 0))}</td><td class="n">${brl(f.contas.reduce((s, c) => s + c.sai, 0))}</td><td class="n"></td><td class="n"><b>${brl(f.contas.reduce((s, c) => s + c.fim, 0))}</b></td></tr></tbody></table></section>
+        <section class="tp-card"><h2>Entradas por categoria</h2>${f.ent.length ? f.ent.map(x => `<div class="cat"><div><span>${esc(x.nome)}</span><b>${brl(x.v)}</b></div><span class="b"><i style="width:${Math.round(x.v / mxE * 100)}%"></i></span></div>`).join('') : '<p class="nota">Nenhuma entrada no período.</p>'}</section>
+        <section class="tp-card"><h2>Entradas e saídas por mês</h2><div class="leg"><span><i></i>Entradas</span><span><i class="s"></i>Saídas</span></div><div class="bars">${f.meses.map(m => `<div class="m" title="${fmtComp(m.mes)}: entradas ${brl(m.ent)}, saídas ${brl(m.sai)}"><div class="par"><i style="height:${Math.round(m.ent / maxM * 118)}px"></i><i class="s" style="height:${Math.round(m.sai / maxM * 118)}px"></i></div><small>${MES[+m.mes.slice(5) - 1]}</small></div>`).join('') || '<p class="nota">Sem movimento no período.</p>'}</div></section>
+        <section class="tp-card"><h2>Saídas por categoria</h2>${f.sai.length ? f.sai.map(x => `<div class="cat s"><div><span>${esc(x.nome)}</span><b>${brl(x.v)}</b></div><span class="b"><i style="width:${Math.round(x.v / mxS * 100)}%"></i></span></div>`).join('') : '<p class="nota">Nenhuma saída no período.</p>'}</section></div>
+      <section class="tp-card"><h2>Lançamentos · saídas</h2><p class="nota" style="margin:-4px 0 0">As mensalidades aparecem somadas em "Entradas por categoria".</p>
+        ${f.saidas.length ? `<div class="tabela-w"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="n">Valor</th></tr></thead><tbody>${f.saidas.slice(0, ST.mais).map(l => `<tr><td>${fmtD(l.data)}</td><td>${esc(l.descricao)}</td><td>${esc(l.categoria)}</td><td class="n">${brl(l.valor)}</td></tr>`).join('')}</tbody></table></div>
+          <div class="cards-m">${f.saidas.slice(0, ST.mais).map(l => `<div class="cm"><div><b>${esc(l.descricao)}</b><div class="small muted">${fmtD(l.data)} · ${esc(l.categoria)}</div></div><b>${brl(l.valor)}</b></div>`).join('')}</div>
+          ${f.saidas.length > ST.mais ? `<button class="btn" id="mais">Carregar mais (${f.saidas.length - ST.mais})</button>` : ''}` : '<p class="nota">Nenhuma saída no período.</p>'}</section>`;
+  }
+  function ligarFin() {
+    document.querySelectorAll('[data-per]').forEach(b => { b.onclick = () => { ST.per = b.dataset.per; if (ST.per === 'datas') render(); else carregar(); }; });
+    const ok = $('#p-ok'); if (ok) ok.onclick = () => { ST.de = $('#p-de').value; ST.ate = $('#p-ate').value; if (ST.de && ST.ate && ST.de <= ST.ate) carregar(); };
+    const m = $('#mais'); if (m) m.onclick = () => { ST.mais += 20; render(); };
+  }
+  document.addEventListener('contextmenu', e => { if (e.target.closest('#app')) e.preventDefault(); });
+  function iniciar() {
+    const q = new URLSearchParams(location.search), t = q.get('t'), c = q.get('c');
+    if (t) { ses.set(t, ''); history.replaceState(null, '', 'transparencia.html'); return carregar(); }
+    if (c) { ses.ultimo = c; return ses.get() && ses.get().c === c ? carregar() : entradaQR(c); }
+    const s = ses.get(); if (s) { if (s.c) ses.ultimo = s.c; return carregar(); }
+    aviso('SEM', 'Abra o Portal da Transparência pelo link pessoal ou pelo QR Code da sua carteirinha.');
+  }
+  iniciar();
+})();
+</script>
+</body>
+</html>

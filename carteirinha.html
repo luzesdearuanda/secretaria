@@ -46,7 +46,7 @@
       ${offline ? `<p class="small muted">Sem conexão: mostrando a carteirinha salva neste aparelho em ${fmtD(offline.slice(0, 10))}.</p>` : ''}
       <div class="faces"><div>${CARTAO.frente(d)}</div><div>${CARTAO.verso(d)}</div></div>
       ${mensalidades(r.mensalidades)}
-      <div class="btns"><button class="btn primary" id="btn-img">${ICO.img} Salvar imagem da carteirinha</button></div>
+      <div class="btns">${r.transparencia ? `<a class="btn" href="transparencia.html?t=${encodeURIComponent(token)}">Portal da Transparência</a>` : ''}<button class="btn primary" id="btn-img">${ICO.img} Salvar imagem da carteirinha</button></div>
       <p class="small muted">Dica: no celular, use "Adicionar à tela inicial" no menu do navegador para abrir a carteirinha com um toque. Este link é pessoal: não compartilhe.</p>`;
     document.getElementById('btn-img').onclick = () => salvarImagem(d);
     const bp = document.getElementById('btn-pix'); if (bp) bp.onclick = () => { try { navigator.clipboard.writeText(bp.dataset.pix).then(() => { bp.textContent = 'Código copiado'; }); } catch (e) { } };

@@ -28,6 +28,7 @@ const MODULOS_INFO = [
   ['livro', 'Livro de registro de associados', 'Relatório para imprimir com termo de abertura, associados, entradas e mudanças de situação.'],
   ['estoque', 'Estoque e patrimônio', 'Velas, ervas e materiais com alerta de estoque baixo, e o inventário dos bens da casa.'],
   ['documentos', 'Documentos', 'Fichas, termos de consentimento (praia, amaci, corte), certificados de batismo e certidões de casamento, em massa ou para pessoas específicas, inclusive não associados.'],
+  ['transparencia', 'Portal da Transparência', 'Associados ativos consultam a situação das mensalidades e a prestação de contas pelo link ou QR Code da carteirinha (só leitura). Ligue depois de conferir os saldos iniciais das contas.'],
   ['backup', 'Cópia de segurança', 'Cópia da planilha numa pasta do Drive, na hora ou toda semana, guardando as últimas versões.'],
 ];
 const TIPOS_EVENTO = ['Gira', 'Festa', 'Batismo', 'Reunião', 'Curso', 'Outro'];
