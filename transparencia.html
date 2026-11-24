@@ -76,7 +76,6 @@
       .tp-bottom{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:6}
       .tp-bottom button{border:0;background:none;color:var(--muted);display:grid;justify-items:center;gap:2px;font:inherit;font-size:.72rem;padding:4px 16px}.tp-bottom svg{width:22px;height:22px}.tp-bottom [aria-current=page]{color:var(--sea);font-weight:700}
       .tabela-w{display:none}.cards-m{display:grid;gap:8px}.cm{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;justify-content:space-between;gap:10px}
-      .tp-contas td:nth-child(5),.tp-contas th:nth-child(5){display:none}
       .mgrid{grid-template-columns:repeat(4,1fr)}.dgrid,.cgrid{grid-template-columns:1fr}.dv{position:static;max-height:none}.dv:not(.cheio){display:none}.ficha dl{grid-template-columns:1fr}
       .so-m{display:flex!important}.cgrid.t-cart .ficha,.cgrid.t-ficha>section:first-child{display:none}.faces .vs{display:none}.faces.verso .vs{display:block}.faces.verso .fr{display:none}
     }
@@ -122,25 +121,24 @@
         <p class="small" id="nasc-msg" style="margin:0;color:var(--bad)" role="alert"></p><div class="btns" style="grid-template-columns:1fr 1fr"><button class="btn primary">Entrar</button><a class="btn" href="validar.html?c=${encodeURIComponent(codigo)}">Cancelar</a></div><p class="small muted" style="margin:0">Acesso só para associados ativos.</p></form></div></div>`;
     $('#f-nasc').onsubmit = async ev => { ev.preventDefault(); const m = $('#nasc-msg'); m.textContent = ''; try { const r = await api('publico.transpEntrar', { codigo, nascimento: $('#nasc').value }); ses.set(r.token, codigo); history.replaceState(null, '', 'transparencia.html'); carregar(); } catch (e) { if (['DATA', 'BLOQUEADO', 'NET'].includes(e.code)) m.textContent = e.message; else aviso(e.code, e.message); } };
   }
-  const ST = { pg: '', per: 'ano', de: '', ate: '', d: null, mais: 20, assoc: '', ano: 0, ctab: 'prox', agv: 'lista', calM: '', dtipo: 'Todos', doc: null, docs: {}, form: null, msg: '', cart: null, ctab2: 'cart', verso: false, vis: {} };
-  function periodo() { const h = hoje(), y = h.slice(0, 4), m = +h.slice(5, 7); if (ST.per === 'mes') return [h.slice(0, 8) + '01', h]; if (ST.per === 'tri') { const t = Math.floor((m - 1) / 3) * 3 + 1; return [`${y}-${String(t).padStart(2, '0')}-01`, h]; } if (ST.per === 'datas' && ST.de && ST.ate) return [ST.de, ST.ate]; return [y + '-01-01', h]; }
+  const ST = { pg: '', d: null, assoc: '', ano: 0, ctab: 'prox', agv: 'lista', calM: '', dtipo: 'Todos', doc: null, docs: {}, form: null, msg: '', cart: null, ctab2: 'cart', verso: false, vis: {} };
   async function carregar() {
     const s = ses.get(); if (!s) { const c = (ses.ultimo || ''); return c ? entradaQR(c) : aviso('SEM', 'Abra o Portal da Transparência pelo link pessoal ou pelo QR Code da sua carteirinha.'); }
-    const [de, ate] = periodo(), novo = !ST.d; if (novo) app.innerHTML = `<div class="tp">${topo()}<div class="entrada"><div class="spinner"></div></div></div>`;
-    try { ST.d = await api('publico.transparencia', { token: s.t, de, ate, ano: ST.ano || undefined, so: novo ? undefined : 1 }); ST.assoc = ST.d.assoc.nome; ST.mais = 20; if (!ST.pg || !visivel(ST.pg)) ST.pg = PAGS.find(p => visivel(p[0]))?.[0] || 'cadastro'; render(); }
+    const novo = !ST.d; if (novo) app.innerHTML = `<div class="tp">${topo()}<div class="entrada"><div class="spinner"></div></div></div>`;
+    try { ST.d = await api('publico.transparencia', { token: s.t, ano: ST.ano || undefined, so: novo ? undefined : 1 }); ST.assoc = ST.d.assoc.nome; if (!ST.pg || !PG[ST.pg] || !visivel(ST.pg)) ST.pg = PAGS.find(p => visivel(p[0]))?.[0] || 'cadastro'; render(); }
     catch (e) { if (e.code === 'LINK' || e.code === 'INATIVO' || e.code === 'VENCIDA') ses.sair(); aviso(e.code, e.message); }
   }
-  const PAGS = [['inicio', 'Início', IC.casa], ['fin', 'Finanças', IC.fin], ['contas', 'Contas a pagar', IC.conta], ['mens', 'Mensalidades', IC.mens], ['agenda', 'Agenda', IC.cal], ['docs', 'Documentos', IC.doc], ['solic', 'Solicitações', IC.sol]];
+  const PAGS = [['inicio', 'Início', IC.casa], ['mens', 'Mensalidades', IC.mens], ['agenda', 'Agenda', IC.cal], ['docs', 'Documentos', IC.doc], ['solic', 'Solicitações', IC.sol]];
   const estado = k => ((ST.d.secoes || {})[k] || { estado: 'ativo' }).estado, visivel = k => estado(k) !== 'oculto';
-  const PG = { inicio: () => inicio(), fin: () => financas(), contas: () => contas(), mens: () => mens(), agenda: () => agenda(), docs: () => docs(), solic: () => solic(), cadastro: () => cadastro() };
-  const TIT = { inicio: 'Início', fin: 'Prestação de contas', contas: 'Contas a pagar', mens: 'Mensalidades', agenda: 'Agenda', docs: 'Documentos', solic: 'Solicitações', cadastro: 'Meu cadastro' };
+  const PG = { inicio: () => inicio(), mens: () => mens(), agenda: () => agenda(), docs: () => docs(), solic: () => solic(), cadastro: () => cadastro() };
+  const TIT = { inicio: 'Início', mens: 'Mensalidades', agenda: 'Agenda', docs: 'Documentos', solic: 'Solicitações', cadastro: 'Meu cadastro' };
   function ir(pg) { ST.pg = pg; ST.doc = null; ST.form = pg === 'solic' ? ST.form : null; render(); scrollTo(0, 0); const s = ses.get(); if (s && !ST.vis[pg] && estado(pg) === 'ativo') { ST.vis[pg] = 1; api('publico.transpVisita', { token: s.t, secao: pg }).catch(() => { }); } }
   function render() {
     document.body.style.overflow = ''; const d = ST.d, a = d.associado, vis = PAGS.filter(p => visivel(p[0])), cad = visivel('cadastro');
     const quem = `<${cad ? 'button data-pg="cadastro" title="Meu cadastro"' : 'div'} class="tp-quem"><div><b>${esc(a.nome.split(' ').slice(0, 2).join(' '))}</b><span>Associado · ${String(a.matricula).padStart(4, '0')}</span></div>${a.foto ? `<img src="data:image/jpeg;base64,${a.foto}" alt="">` : '<span class="sem"></span>'}</${cad ? 'button' : 'div'}>`;
     const nav = vis.map(([k, t, ic]) => `<button class="tp-nav" data-pg="${k}" ${ST.pg === k ? 'aria-current="page"' : ''}>${ic}<span>${t}</span></button>`).join('') + (cad ? `<button class="tp-nav" data-pg="cadastro" ${ST.pg === 'cadastro' ? 'aria-current="page"' : ''}>${IC.cad}<span>Meu cadastro</span></button>` : '');
     const bot = vis.length > 5 ? vis.slice(0, 4) : vis, resto = vis.slice(bot.length).concat(cad ? [['cadastro', 'Meu cadastro', IC.cad]] : []), noResto = resto.some(p => p[0] === ST.pg);
-    const at = (d.fin || {}).atualizadoEm || '';
+    const at = d.atualizadoEm || '';
     app.innerHTML = `<div class="tp">${topo(quem)}<div class="tp-corpo"><nav class="tp-side" aria-label="Menu"><div class="sec">Área do associado</div>${nav}</nav>
       <main class="tp-main" id="conteudo">${estado(ST.pg) === 'manutencao' ? manut(ST.pg) : PG[ST.pg]()}
       <div class="tp-pe"><span>Consulta e solicitações à Secretaria${at ? ` · Dados atualizados em ${esc(fmtD(at) + ' ' + at.slice(11))}` : ''}</span><button class="btn" id="sair" style="padding:6px 14px">Sair</button></div></main></div>
@@ -150,51 +148,18 @@
     $('#sair').onclick = () => { ses.sair(); ST.d = null; ST.cart = null; aviso('SEM', 'Você saiu. Para entrar de novo, use o link ou o QR Code da sua carteirinha.'); };
     const bm = $('#bt-mais'); if (bm) bm.onclick = () => { $('#sheet').innerHTML = `<div class="ov-f" id="ov-m"><div class="sheet" role="dialog" aria-label="Mais opções">${resto.map(([k, t, ic]) => `<button data-pm="${k}">${ic}<span>${t}</span></button>`).join('')}<button class="btn" id="m-fechar">Fechar</button></div></div>`;
       document.querySelectorAll('[data-pm]').forEach(b => { b.onclick = () => ir(b.dataset.pm); }); $('#m-fechar').onclick = () => { $('#sheet').innerHTML = ''; }; $('#ov-m').onclick = e => { if (e.target.id === 'ov-m') $('#sheet').innerHTML = ''; }; };
-    if (estado(ST.pg) !== 'manutencao') ({ fin: ligarFin, contas: ligarContas, mens: ligarMens, agenda: ligarAgenda, docs: ligarDocs, solic: ligarSolic, cadastro: ligarCad })[ST.pg]?.();
+    if (estado(ST.pg) !== 'manutencao') ({ mens: ligarMens, agenda: ligarAgenda, docs: ligarDocs, solic: ligarSolic, cadastro: ligarCad })[ST.pg]?.();
   }
   const manut = k => `<h1>${TIT[k]}</h1><section class="tp-card aviso"><span class="selo warn">Em manutenção</span><span style="color:var(--warn)">${IC.tool}</span><h2>Esta parte está em manutenção</h2><p>${esc(ST.d.secoes[k].msg || 'Volte mais tarde.')}</p></section>`;
   function selo(s) { return s.estado === 'emdia' ? '<span class="selo ok">Em dia</span>' : s.estado === 'tolerancia' ? `<span class="selo warn">${s.atraso === 1 ? '1 mês em aberto' : s.atraso + ' meses em aberto'}</span> <span class="small" style="color:var(--warn)">Dentro da tolerância</span>` : `<span class="selo bad">Em atraso (${s.atraso} ${s.atraso === 1 ? 'mês' : 'meses'})</span>`; }
   function vence(v) { const n = dias(v); return n < 0 ? `<span class="selo bad">Vencida há ${-n} ${-n === 1 ? 'dia' : 'dias'}</span>` : `<span class="selo warn">${n === 0 ? 'Vence hoje' : `Vence em ${n} ${n === 1 ? 'dia' : 'dias'}`}</span>`; }
   function inicio() {
-    const d = ST.d, s = d.situacao, f = d.fin;
-    return `<h1>Início</h1><p class="tp-sub">Olá, ${esc(d.associado.nome.split(' ')[0])}. Acompanhe sua situação e os principais movimentos da associação.</p>
+    const d = ST.d, s = d.situacao, ev = d.eventos || [];
+    return `<h1>Início</h1><p class="tp-sub">Olá, ${esc(d.associado.nome.split(' ')[0])}. Acompanhe sua situação e os próximos eventos da casa.</p>
       <section class="tp-card"><h2>Minha situação</h2><div>${selo(s)} <span class="small" style="margin-left:6px">${s.emDiaAno} de ${s.vencidosAno} ${s.vencidosAno === 1 ? 'mês vencido' : 'meses vencidos'} em ${s.ano}</span></div>
         <dl class="sit"><div><dt>Último pagamento</dt><dd>${s.ultimo ? `${fmtD(s.ultimo.data)} · ${brl(s.ultimo.valor)}` : '—'}</dd></div><div><dt>Próximo vencimento</dt><dd>${s.proximo ? `${fmtComp(s.proximo.competencia)} · ${brl(s.proximo.valor)}` : '—'}</dd></div></dl></section>
-      <div class="kp">${f.saldoAtual.map(c => `<div class="k sea"><span>Saldo ${/caixa|dinheiro/i.test(c.tipo + c.nome) ? 'em caixa' : 'em ' + esc(c.nome)}</span><b>${brl(c.saldo)}</b></div>`).join('')}<div class="k"><span>Entradas no mês</span><b>${brl(f.mes.ent)}</b></div><div class="k neg"><span>Saídas no mês</span><b>${brl(f.mes.sai)}</b></div></div>
-      <div class="grid2">${estado('contas') === 'ativo' ? `<section class="tp-card"><h2>Contas vencendo</h2>${f.vencendo.length ? f.vencendo.map(x => `<div class="lin"><div><b>${esc(x.descricao)}</b><div class="s">${fmtD(x.vencimento)}${x.categoria ? ' · ' + esc(x.categoria) : ''}</div></div><div style="text-align:right"><b>${brl(x.valor)}</b><div>${vence(x.vencimento)}</div></div></div>`).join('') : '<p class="nota">Nenhuma conta pendente.</p>'}</section>` : ''}
-        ${estado('agenda') === 'ativo' ? `<section class="tp-card"><h2>Próximos eventos</h2>${f.eventos.length ? f.eventos.map(e => `<div class="lin"><div><b>${esc(e.titulo || e.tipo)}</b><div class="s">${esc(e.tipo || '')}${e.local ? ' · ' + esc(e.local) : ''}</div></div><div style="text-align:right"><b>${fmtD(e.data)}</b><div class="s">${esc(e.hora || '')}</div></div></div>`).join('') : '<p class="nota">Nenhum evento agendado.</p>'}</section>` : ''}</div>`;
+      ${estado('agenda') === 'ativo' ? `<section class="tp-card"><h2>Próximos eventos</h2>${ev.length ? ev.map(e => `<div class="lin"><div><b>${esc(e.titulo || e.tipo)}</b><div class="s">${esc(e.tipo || '')}${e.local ? ' · ' + esc(e.local) : ''}</div></div><div style="text-align:right"><b>${fmtD(e.data)}</b><div class="s">${esc(e.hora || '')}</div></div></div>`).join('') : '<p class="nota">Nenhum evento agendado.</p>'}</section>` : ''}`;
   }
-  function financas() {
-    const f = ST.d.fin, trf = f.contas.some(c => c.trf), maxM = Math.max(1, ...f.meses.map(m => Math.max(m.ent, m.sai))), mxE = Math.max(1, ...f.ent.map(x => x.v)), mxS = Math.max(1, ...f.sai.map(x => x.v)), res = f.totalEnt - f.totalSai;
-    const per = [['mes', 'Mês'], ['tri', 'Trimestre'], ['ano', 'Ano'], ['datas', 'Escolher datas']];
-    return `<h1>Prestação de contas</h1><p class="tp-sub">Consulte as entradas, saídas e saldos por período.</p>
-      <section class="tp-card"><div class="per"><span class="small muted">Período</span>${per.map(([k, t]) => `<button data-per="${k}" aria-pressed="${ST.per === k}">${t}</button>`).join('')}
-        ${ST.per === 'datas' ? `<input type="date" id="p-de" value="${ST.de || f.de}" aria-label="De"><input type="date" id="p-ate" value="${ST.ate || f.ate}" aria-label="Até"><button id="p-ok">Ver</button>` : ''}</div><span class="small muted">De ${fmtD(f.de)} a ${fmtD(f.ate)}</span></section>
-      <div class="kp"><div class="k"><span>Total de entradas</span><b>${brl(f.totalEnt)}</b></div><div class="k neg"><span>Total de saídas</span><b style="color:var(--bad)">${brl(f.totalSai)}</b></div><div class="k sea"><span>Resultado do período</span><b style="color:var(--${res >= 0 ? 'ok' : 'bad'})">${res >= 0 ? '+ ' : '− '}${brl(Math.abs(res))}</b></div></div>
-      <div class="grid2"><section class="tp-card"><h2>Saldos por conta</h2><table class="tp-contas"><thead><tr><th>Conta</th><th class="n">Saldo inicial</th><th class="n">Entradas</th><th class="n">Saídas</th>${trf ? '<th class="n">Transf.</th>' : '<th class="n"></th>'}<th class="n">Saldo final</th></tr></thead><tbody>
-        ${f.contas.map(c => `<tr><td>${esc(c.nome)}</td><td class="n">${brl(c.ant)}</td><td class="n">${brl(c.ent)}</td><td class="n">${brl(c.sai)}</td><td class="n">${trf ? brl(c.trf) : ''}</td><td class="n"><b>${brl(c.fim)}</b></td></tr>`).join('')}
-        <tr><td><b>Total</b></td><td class="n">${brl(f.contas.reduce((s, c) => s + c.ant, 0))}</td><td class="n">${brl(f.contas.reduce((s, c) => s + c.ent, 0))}</td><td class="n">${brl(f.contas.reduce((s, c) => s + c.sai, 0))}</td><td class="n"></td><td class="n"><b>${brl(f.contas.reduce((s, c) => s + c.fim, 0))}</b></td></tr></tbody></table></section>
-        <section class="tp-card"><h2>Entradas por categoria</h2>${f.ent.length ? f.ent.map(x => `<div class="cat"><div><span>${esc(x.nome)}</span><b>${brl(x.v)}</b></div><span class="b"><i style="width:${Math.round(x.v / mxE * 100)}%"></i></span></div>`).join('') : '<p class="nota">Nenhuma entrada no período.</p>'}</section>
-        <section class="tp-card"><h2>Entradas e saídas por mês</h2><div class="leg"><span><i></i>Entradas</span><span><i class="s"></i>Saídas</span></div><div class="bars">${f.meses.map(m => `<div class="m" title="${fmtComp(m.mes)}: entradas ${brl(m.ent)}, saídas ${brl(m.sai)}"><div class="par"><i style="height:${Math.round(m.ent / maxM * 118)}px"></i><i class="s" style="height:${Math.round(m.sai / maxM * 118)}px"></i></div><small>${MES[+m.mes.slice(5) - 1]}</small></div>`).join('') || '<p class="nota">Sem movimento no período.</p>'}</div></section>
-        <section class="tp-card"><h2>Saídas por categoria</h2>${f.sai.length ? f.sai.map(x => `<div class="cat s"><div><span>${esc(x.nome)}</span><b>${brl(x.v)}</b></div><span class="b"><i style="width:${Math.round(x.v / mxS * 100)}%"></i></span></div>`).join('') : '<p class="nota">Nenhuma saída no período.</p>'}</section></div>
-      <section class="tp-card"><h2>Lançamentos · saídas</h2><p class="nota" style="margin:-4px 0 0">As mensalidades aparecem somadas em "Entradas por categoria".</p>
-        ${f.saidas.length ? `<div class="tabela-w"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="n">Valor</th></tr></thead><tbody>${f.saidas.slice(0, ST.mais).map(l => `<tr><td>${fmtD(l.data)}</td><td>${esc(l.descricao)}</td><td>${esc(l.categoria)}</td><td class="n">${brl(l.valor)}</td></tr>`).join('')}</tbody></table></div>
-          <div class="cards-m">${f.saidas.slice(0, ST.mais).map(l => `<div class="cm"><div><b>${esc(l.descricao)}</b><div class="small muted">${fmtD(l.data)} · ${esc(l.categoria)}</div></div><b>${brl(l.valor)}</b></div>`).join('')}</div>
-          ${f.saidas.length > ST.mais ? `<button class="btn" id="mais">Carregar mais (${f.saidas.length - ST.mais})</button>` : ''}` : '<p class="nota">Nenhuma saída no período.</p>'}</section>`;
-  }
-  function ligarFin() {
-    document.querySelectorAll('[data-per]').forEach(b => { b.onclick = () => { ST.per = b.dataset.per; if (ST.per === 'datas') render(); else carregar(); }; });
-    const ok = $('#p-ok'); if (ok) ok.onclick = () => { ST.de = $('#p-de').value; ST.ate = $('#p-ate').value; if (ST.de && ST.ate && ST.de <= ST.ate) carregar(); };
-    const m = $('#mais'); if (m) m.onclick = () => { ST.mais += 20; render(); };
-  }
-  function contas() {
-    const c = ST.d.contas, l = ST.ctab === 'venc' ? c.vencidas : c.proximas;
-    return `<h1>Contas a pagar</h1><p class="tp-sub">Contas da associação que ainda vão ser pagas.</p>
-      <div class="kp"><div class="k neg"><span>Total nos próximos 30 dias</span><b>${brl(c.total30)}</b></div><div class="k"><span>Próximas</span><b>${c.proximas.length}</b></div><div class="k ${c.vencidas.length ? 'neg' : 'sea'}"><span>Vencidas</span><b>${c.vencidas.length}</b></div></div>
-      <section class="tp-card"><div class="per" role="tablist"><button data-ct="prox" aria-pressed="${ST.ctab === 'prox'}">Próximas (${c.proximas.length})</button><button data-ct="venc" aria-pressed="${ST.ctab === 'venc'}">Vencidas (${c.vencidas.length})</button></div>
-        ${l.length ? l.map(x => `<div class="lin"><div><b>${esc(x.descricao)}</b><div class="s">${fmtD(x.vencimento)}${x.categoria ? ' · ' + esc(x.categoria) : ''}${x.parcela ? ` · <span class="selo neu">Parcela ${x.parcela[0]} de ${x.parcela[1]}</span>` : ''}</div></div><div style="text-align:right"><b>${brl(x.valor)}</b><div>${vence(x.vencimento)}</div></div></div>`).join('') : `<p class="nota">${ST.ctab === 'venc' ? 'Nenhuma conta vencida.' : 'Nenhuma conta a pagar.'}</p>`}</section>`;
-  }
-  function ligarContas() { document.querySelectorAll('[data-ct]').forEach(b => { b.onclick = () => { ST.ctab = b.dataset.ct; render(); }; }); }
   const STM = { pago: ['ok', 'Pago'], aberto: ['bad', 'Em aberto'], avencer: ['neu', 'A vencer'], isento: ['sea', 'Isento'], nd: ['nd', '—'] };
   function mens() {
     const m = ST.d.mens, mx = Math.max(1, ...m.arrecadacao.map(x => x.v)), i = m.inad;
@@ -227,10 +192,10 @@
     document.querySelectorAll('[data-cal]').forEach(b => { b.onclick = () => { const [y, m] = (ST.calM || hoje().slice(0, 7)).split('-').map(Number), d = new Date(y, m - 1 + +b.dataset.cal, 1); ST.calM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; render(); }; });
     document.querySelectorAll('[data-dia]').forEach(b => { b.onclick = () => { const evs = ST.d.agenda.proximos.concat(ST.d.agenda.passados).filter(e => e.data === b.dataset.dia); $('#cal-dia').innerHTML = `<h2>${fmtD(b.dataset.dia)}</h2>${evs.map(evLin).join('')}`; $('#cal-dia').scrollIntoView({ block: 'nearest' }); }; });
   }
-  const DTIPOS = [['Todos', 'Todos'], ['Estatuto', 'Estatuto'], ['Ata', 'Atas'], ['Balancete', 'Balancetes'], ['Outro', 'Outros']];
+  const DTIPOS = [['Todos', 'Todos'], ['Estatuto', 'Estatuto'], ['Outro', 'Outros']];
   function docs() {
     const l = ST.d.docs.filter(x => ST.dtipo === 'Todos' || x.tipo === ST.dtipo), sel = ST.d.docs.find(x => x.id === ST.doc);
-    return `<h1>Documentos</h1><p class="tp-sub">Estatuto, atas, balancetes e outros documentos da associação. Só para consulta na tela.</p>
+    return `<h1>Documentos</h1><p class="tp-sub">Estatuto e outros documentos da associação. Só para consulta na tela.</p>
       <div class="per">${DTIPOS.map(([k, t]) => `<button data-dt="${k}" aria-pressed="${ST.dtipo === k}">${t}</button>`).join('')}</div>
       <div class="dgrid"><section class="tp-card dlist">${l.length ? l.map(x => `<button class="dl${x.id === ST.doc ? ' on' : ''}" data-doc="${x.id}">${IC.doc}<span><b>${esc(x.titulo)}</b><small>${esc(x.tipo)} · ${fmtD(x.data)}</small></span></button>`).join('') : '<p class="nota">Nenhum documento publicado.</p>'}</section>
         <section class="tp-card dv" id="dv">${sel ? `<div class="dvh"><b>${esc(sel.titulo)}</b><button class="btn" id="dv-x">Fechar</button></div><div id="dv-pags"><div class="spinner"></div></div>` : '<p class="nota">Escolha um documento para ver.</p>'}</section></div>`;
