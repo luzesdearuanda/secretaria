@@ -465,32 +465,34 @@ function shell(content) {
 }
 
 /* ============ Telas de acesso ============ */
-const loginCard = body => `<div class="login"><div class="login-card">
-    <div class="logo-disc"><img src="${LOGO}" alt="Logo da Associação Centro de Umbanda Luzes de Aruanda"></div>
-    <div style="display:grid;gap:6px"><div class="eyebrow">Secretaria</div><h1>Associação Centro de Umbanda Luzes de Aruanda</h1><p class="muted">Associados, mensalidades, carteirinhas e financeiro</p></div>
+// versão 2.4: entrada no mesmo desenho do Portal do Leitor da biblioteca (apresentação à esquerda, acesso à direita)
+const loginCard = (body, titulo = 'Entrar no sistema', sub = 'Associados, mensalidades, carteirinhas e financeiro.') => `<div class="lx-entrada">
+  <section class="lx-ent-arte" aria-hidden="true"><div class="lx-luz"></div><div class="lx-ent-arte-in"><p class="lx-eyebrow claro">Secretaria Luzes de Aruanda</p>
+    <p class="lx-ent-frase">Cuidar da casa também é <em>caminho de luz.</em></p><p class="lx-ent-sub">O sistema da secretaria: associados, mensalidades, carteirinhas, agenda e muito mais.</p>
+    <ul class="lx-ent-trio"><li>${ic('users')}<span><b>Associados e funções</b>Cadastro completo de cada médium</span></li><li>${ic('coin')}<span><b>Mensalidades e cobrança</b>Com recibo e aviso de atraso</span></li><li>${ic('card')}<span><b>Carteirinhas</b>Com QR Code de validação</span></li></ul></div></section>
+  <section class="lx-ent-painel"><div class="lx-ent-card">
+    <div class="lx-ent-marca"><img src="${LOGO}" alt="Logo da Associação Centro de Umbanda Luzes de Aruanda"><div><span class="lx-eyebrow">Secretaria</span><b>Associação Centro de Umbanda Luzes de Aruanda</b></div></div>
+    <div class="lx-ent-tit"><h1>${titulo}</h1>${sub ? `<p>${sub}</p>` : ''}</div>
     ${body}
-    <p class="small muted"><a href="privacidade.html" target="_blank" rel="noopener">Política de privacidade</a> · <a href="validar.html">Validar uma carteirinha</a></p>
-  </div></div>`;
+    <p class="lx-ent-rodape"><a href="privacidade.html" target="_blank" rel="noopener">Política de privacidade</a> · <a href="validar.html">Validar uma carteirinha</a></p>
+  </div></section></div>`;
 function vLogin() {
   if (UI.login === 'loading') return loginCard(`<div class="spinner" role="status" aria-label="Carregando"></div><p class="muted">Validando acesso e carregando o cadastro…</p>`);
   if (UI.login === 'error') return loginCard(`<div class="note bad" style="text-align:left"><b>Não foi possível carregar o sistema</b><span>${esc(UI.errMsg)}</span></div><button class="btn primary" data-act="retryBoot">Tentar de novo</button><button class="btn ghost" data-act="loginReset">Entrar com outra conta</button>`);
   return loginCard(`${UI.loginMsg ? `<div class="note warn" style="text-align:left"><span>${esc(UI.loginMsg)}</span></div>` : ''}<div id="g-btn" class="g-btn" aria-label="Entrar com Google"></div>
-      <p class="small muted">O acesso é liberado apenas para operadores cadastrados pela secretaria da associação. O app nunca pede sua senha do Google.</p>`);
+      <p class="small muted">O acesso é liberado apenas para operadores cadastrados pela secretaria da associação. O app nunca pede sua senha do Google.</p>`, 'Acesso do operador', 'Entre com a conta Google cadastrada pela secretaria.');
 }
 function vDenied() {
-  return `<div class="login"><div class="login-card">
-    <div class="logo-disc" style="width:88px;height:88px"><img src="${LOGO}" alt=""></div>
-    <div class="note bad" style="text-align:left"><b>Esta conta não tem acesso</b><span>${esc(UI.deniedMsg)}</span></div>
+  return loginCard(`<div class="note bad" style="text-align:left"><b>Esta conta não tem acesso</b><span>${esc(UI.deniedMsg)}</span></div>
     <p class="muted small">Peça ao administrador para liberar este e-mail na lista de operadores. Nenhum dado foi carregado.</p>
-    <button class="btn primary" data-act="loginReset">Entrar com outra conta</button>
-  </div></div>`;
+    <button class="btn primary" data-act="loginReset" style="justify-self:start">Entrar com outra conta</button>`, 'Acesso não liberado', '');
 }
 function vSetup() {
   return loginCard(`<div class="note warn" style="text-align:left"><b>Sistema ainda não configurado</b><span>Preencha <span class="mono">API_URL</span> e <span class="mono">CLIENT_ID</span> no arquivo <span class="mono">config.js</span>, conforme o guia de implantação.</span></div>`);
 }
 
 const VIEWS = {};
-const kpiBox = (label, val, note, cls = '', act = '') => act
+const kpiBox = (label, val, note, cls = '', act = '') => (/^-?\s*R\$/.test(String(val)) && !/\bmoney\b/.test(cls) && (cls = (cls + ' money').trim()), act)
   ? `<button class="kpi ${cls}" ${act}><span class="k-label">${label}</span><span class="k-val">${val}</span><span class="k-note">${note}</span></button>`
   : `<div class="kpi ${cls}"><span class="k-label">${label}</span><span class="k-val">${val}</span><span class="k-note">${note}</span></div>`;
 
